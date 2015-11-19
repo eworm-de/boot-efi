@@ -92,6 +92,7 @@ AC_SUBST([EFI_INC_DIR])
 AS_IF([test x"$cross_compiling" = "xyes"], [], [
         AC_PATH_PROG([QEMU], [qemu-system-x86_64])
         AC_CHECK_FILE([/usr/share/qemu/bios-ovmf.bin], [QEMU_BIOS=/usr/share/qemu/bios-ovmf.bin])
+        AC_CHECK_FILE([/usr/share/qemu/OVMF.fd], [QEMU_BIOS=/usr/share/qemu/OVMF.fd])
         AC_SUBST([QEMU_BIOS])
 ])
 
