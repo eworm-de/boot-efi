@@ -147,6 +147,7 @@ CLEANFILES += test-efi-disk.img
 
 test-efi-disk.img: $(stub) test/test-efi-create-disk.sh
 	$(AM_V_GEN)test/test-efi-create-disk.sh
+.DELETE_ON_ERROR: test-efi-disk.img
 
 test-efi: test-efi-disk.img
 	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
