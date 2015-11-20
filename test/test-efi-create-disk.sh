@@ -22,11 +22,13 @@ mkdir mnt/EFI/bus1
 echo -n "bus1-0815" | iconv -f UTF-8 -t UTF-16LE > mnt/release.txt
 echo -n "foo=yes bar=no" | iconv -f UTF-8 -t UTF-16LE > mnt/options.txt
 
-linux=/boot/$(cat /etc/machine-id)/$(uname -r)/linux
+linux=linux
+test -e "$linux" || linux=/boot/$(cat /etc/machine-id)/$(uname -r)/linux
 test -e "$linux" || linux=/vmlinuz
 test -e "$linux" || exit 1
 
-initrd=/boot/$(cat /etc/machine-id)/$(uname -r)/initrd
+initrd=initrd
+test -e "$initrd" || initrd=/boot/$(cat /etc/machine-id)/$(uname -r)/initrd
 test -e "$initrd" || initrd=/initrd.img
 test -e "$initrd" || exit 1
 
