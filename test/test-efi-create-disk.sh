@@ -16,8 +16,6 @@ mount ${LOOP}p1 mnt
 mkdir -p mnt/EFI/Boot
 cp bootx64.efi mnt/EFI/Boot/bootx64.efi
 
-[ -e /boot/shellx64.efi ] && cp /boot/shellx64.efi mnt/
-
 mkdir mnt/EFI/bus1
 echo -n "bus1-0815" | iconv -f UTF-8 -t UTF-16LE > mnt/release.txt
 echo -n "foo=yes bar=no" | iconv -f UTF-8 -t UTF-16LE > mnt/options.txt
