@@ -1,0 +1,10 @@
+bootx64.efi: Boot Manager
+ - searches EFI binaries in (ESP)/EFI/bus1/*.efi
+ - executes the latest release version
+ - if a key is pressed during bootup, a menu is drawn showing all found binaries
+ - built-in command line editor
+
+stubx64.efi: Boot Code Stub
+ - executes the embedded PE-sections which contain the kernel, initrd,
+   kernel cmdline, release string
+ - shows the splash screen from the embedded PE section
