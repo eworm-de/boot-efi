@@ -355,8 +355,8 @@ static VOID print_status(Config *config) {
                 FreePool(s);
         }
 
-        if (disk_get_part_uuid(config->loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                Print(L"Partition UUID:         %s\n", uuid);
+        if (disk_get_disk_uuid(config->loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                Print(L"Disk UUID:              %s\n", uuid);
 
         if (uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x, &y) == EFI_SUCCESS)
                 Print(L"console size:           %d x %d\n", x, y);
@@ -1026,10 +1026,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         CHAR8 *b;
         UINTN size;
         EFI_FILE *root_dir;
-        EFI_STATUS err;
         Config config = {};
         BOOLEAN menu = FALSE;
         UINT64 key;
+        EFI_STATUS err;
 
         InitializeLib(image, sys_table);
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&config.loaded_image,

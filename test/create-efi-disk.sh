@@ -5,12 +5,17 @@ set -e
 ROOT=$(mktemp -d /tmp/efi-tmpXXX)
 
 # create GPT table with EFI System Partition
-rm -f test-efi-disk.img
-dd if=/dev/null of=test-efi-disk.img bs=1M seek=512 count=1
-parted --script test-efi-disk.img "mklabel gpt" "mkpart ESP fat32 1MiB 511MiB" "set 1 boot on"
+rm -f efi-disk.img
+dd if=/dev/null of=efi-disk.img bs=1MiB seek=1024 count=1
+
+sfdisk efi-disk.img << EOF
+label: gpt
+start=1MiB, size=511MiB, type=c12a7328-f81f-11d2-ba4b-00a0c93ec93b, name="ESP"
+            size=512MiB, type=e0243462-d2d0-4c3b-ad28-b365f2da3b4d, name="bus1"
+EOF
 
 # create FAT32 file system
-LOOP=$(losetup --show -f -P test-efi-disk.img)
+LOOP=$(losetup --show -f -P efi-disk.img)
 mkfs.vfat -F32 ${LOOP}p1
 mkdir -p $ROOT
 mount ${LOOP}p1 $ROOT

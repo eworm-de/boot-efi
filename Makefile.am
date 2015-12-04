@@ -147,13 +147,14 @@ $(stub): $(stub_solib)
 	  -j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
 
 # ------------------------------------------------------------------------------
-CLEANFILES += test-efi-disk.img
+CLEANFILES += efi-disk.img
 
-test-efi-disk.img: $(stub) test/test-efi-create-disk.sh
-	$(AM_V_GEN)test/test-efi-create-disk.sh
-.DELETE_ON_ERROR: test-efi-disk.img
+efi-disk.img: $(boot) $(stub) test/create-efi-disk.sh
+	$(AM_V_GEN)test/create-efi-disk.sh
+.DELETE_ON_ERROR: efi-disk.img
 
-test-efi: test-efi-disk.img
-	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -snapshot test-efi-disk.img
+test-efi: efi-disk.img
+	$(QEMU) -machine accel=kvm -m 1024 -bios $(QEMU_BIOS) -drive format=raw,file=efi-disk.img
+.PHONY: test-efi
 
-EXTRA_DIST += test/test-efi-create-disk.sh
+EXTRA_DIST += test/create-efi-disk.sh

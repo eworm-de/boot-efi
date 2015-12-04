@@ -70,7 +70,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!loaded_image_path)
                 return EFI_LOAD_ERROR;
 
-        err = disk_get_part_uuid(loaded_image->DeviceHandle, uuid);
+        err = disk_get_disk_uuid(loaded_image->DeviceHandle, uuid);
         if (EFI_ERROR(err))
                 return err;
 

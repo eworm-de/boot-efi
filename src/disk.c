@@ -18,32 +18,77 @@
 #include <efi.h>
 #include <efilib.h>
 
-EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[37]) {
-        EFI_DEVICE_PATH *device_path;
-        EFI_STATUS r = EFI_NOT_FOUND;
+typedef struct {
+        UINT8   signature[8];
+        UINT32  revision;
+        UINT32  header_size;
+        UINT32  header_crc32;
+        UINT32  reserved;
+        UINT64  header_lba;
+        UINT64  alternate_header_lba;
+        UINT64  first_usable_lba;
+        UINT64  last_usable_lba;
+        UINT8   disk_guid[16];
+        UINT64  entry_lba;
+        UINT32  entry_count;
+        UINT32  entry_size;
+        UINT32  entry_crc32;
+        UINT8   reserved2[420];
+} GPTHeader;
 
-        device_path = DevicePathFromHandle(handle);
-        if (device_path) {
-                EFI_DEVICE_PATH *path, *paths;
+EFI_STATUS disk_get_disk_uuid(EFI_HANDLE *part_handle, CHAR16 uuid[37]) {
+        EFI_DEVICE_PATH *part_path;
+        EFI_DEVICE_PATH *path;
+        EFI_STATUS r;
 
-                paths = UnpackDevicePath(device_path);
-                for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
-                        HARDDRIVE_DEVICE_PATH *drive;
+        part_path = DevicePathFromHandle(part_handle);
+        if (!part_path)
+                return EFI_NOT_FOUND;
 
-                        if (DevicePathType(path) != MEDIA_DEVICE_PATH)
-                                continue;
-                        if (DevicePathSubType(path) != MEDIA_HARDDRIVE_DP)
-                                continue;
-                        drive = (HARDDRIVE_DEVICE_PATH *)path;
-                        if (drive->SignatureType != SIGNATURE_TYPE_GUID)
-                                continue;
+        for (path = part_path; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
+                EFI_DEVICE_PATH *disk_path, *p;
+                EFI_HANDLE disk_handle;
+                UINTN len;
+                EFI_BLOCK_IO *block_io;
+                GPTHeader gpt_header = {};
 
-                        GuidToString(uuid, (EFI_GUID *)&drive->Signature);
-                        r = EFI_SUCCESS;
-                        break;
-                }
-                FreePool(paths);
+                if (DevicePathType(path) != MESSAGING_DEVICE_PATH)
+                        continue;
+
+                len = (UINT8 *)NextDevicePathNode(path) - (UINT8 *)part_path;
+                disk_path = (EFI_DEVICE_PATH *)AllocatePool(len + sizeof(EFI_DEVICE_PATH));
+                CopyMem(disk_path, part_path, len);
+                CopyMem((UINT8 *)disk_path + len, EndDevicePath, sizeof(EFI_DEVICE_PATH));
+
+                p = disk_path;
+                r = uefi_call_wrapper(BS->LocateDevicePath, 3, &BlockIoProtocol, &p, &disk_handle);
+                FreePool(disk_path);
+                if (EFI_ERROR(r))
+                        continue;
+
+                r = uefi_call_wrapper(BS->HandleProtocol, 3, disk_handle, &BlockIoProtocol, (VOID **)&block_io);
+                if (EFI_ERROR(r))
+                        continue;
+
+                if (block_io->Media->LogicalPartition || !block_io->Media->MediaPresent)
+                        continue;
+
+                r = uefi_call_wrapper(block_io->ReadBlocks, 5, block_io, block_io->Media->MediaId, 1, sizeof(GPTHeader), &gpt_header);
+                if (EFI_ERROR(r))
+                        continue;
+
+                if (CompareMem(gpt_header.signature, "EFI PART", sizeof(gpt_header.signature)) != 0)
+                        continue;
+
+                if (gpt_header.revision != 0x00010000)
+                        continue;
+
+                if (gpt_header.header_size < 92 || gpt_header.header_size > 512)
+                        continue;
+
+                GuidToString(uuid, (EFI_GUID *)&gpt_header.disk_guid);
+                return 0;
         }
 
-        return r;
+        return EFI_NOT_FOUND;
 }
