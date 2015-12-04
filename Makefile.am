@@ -69,12 +69,14 @@ endif
 boot_headers = \
 	src/util.h \
 	src/console.h \
+	src/disk.h \
 	src/graphics.h \
 	src/pefile.h
 
 boot_sources = \
 	src/util.c \
 	src/console.c \
+	src/disk.c \
 	src/graphics.c \
 	src/pefile.c \
 	src/boot.c
@@ -104,6 +106,7 @@ $(boot): $(boot_solib)
 # ------------------------------------------------------------------------------
 stub_headers = \
 	src/util.h \
+	src/disk.h \
 	src/pefile.h \
 	src/graphics.h \
 	src/splash.h \
@@ -111,6 +114,7 @@ stub_headers = \
 
 stub_sources = \
 	src/util.c \
+	src/disk.c \
 	src/pefile.c \
 	src/graphics.c \
 	src/splash.c \

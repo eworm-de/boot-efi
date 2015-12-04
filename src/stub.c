@@ -19,6 +19,7 @@
 #include <efilib.h>
 
 #include "util.h"
+#include "disk.h"
 #include "pefile.h"
 #include "graphics.h"
 #include "splash.h"
@@ -30,6 +31,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
         EFI_FILE *root_dir;
         CHAR16 *loaded_image_path;
+        CHAR16 uuid[37] = {};
         CHAR8 *b;
         UINTN size;
         BOOLEAN secure = FALSE;
@@ -44,27 +46,19 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN offs[ELEMENTSOF(sections)-1] = {};
         UINTN szs[ELEMENTSOF(sections)-1] = {};
         CHAR8 *cmdline = NULL;
-        UINTN cmdline_len;
+        UINTN cmdline_len = 0;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
 
         err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err)) {
-                Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        if (EFI_ERROR(err))
                 return err;
-        }
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
-        if (!root_dir) {
-                Print(L"Unable to open root directory: %r ", err);
-                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        if (!root_dir)
                 return EFI_LOAD_ERROR;
-        }
-
-        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
 
         if (efivar_get(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS) {
                 if (*b > 0)
@@ -72,30 +66,46 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 FreePool(b);
         }
 
+        loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+        if (!loaded_image_path)
+                return EFI_LOAD_ERROR;
+
+        err = disk_get_part_uuid(loaded_image->DeviceHandle, uuid);
+        if (EFI_ERROR(err))
+                return err;
+
         err = pefile_locate_sections(root_dir, loaded_image_path, sections, addrs, offs, szs);
         if (EFI_ERROR(err)) {
-                Print(L"Unable to locate embedded .linux section: %r ", err);
+                Print(L"Unable to locate embedded .linux section: %r\n", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
         }
 
-        if (szs[0] > 0)
-                cmdline = (CHAR8 *)(loaded_image->ImageBase + addrs[0]);
+        FreePool(loaded_image_path);
 
-        cmdline_len = szs[0];
+        if (secure && loaded_image->LoadOptionsSize > 0) {
+                Print(L"Secure Boot active, ignoring custom kernel command line.\n");
+                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+        }
 
-        /* if we are not in secure boot mode, accept a custom command line and replace the built-in one */
         if (!secure && loaded_image->LoadOptionsSize > 0) {
                 CHAR16 *options;
-                CHAR8 *line;
                 UINTN i;
 
                 options = (CHAR16 *)loaded_image->LoadOptions;
-                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16)) * sizeof(CHAR8);
-                line = AllocatePool(cmdline_len);
+                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16));
+                cmdline = AllocatePool(cmdline_len);
                 for (i = 0; i < cmdline_len; i++)
-                        line[i] = options[i];
-                cmdline = line;
+                        cmdline[i] = options[i];
+        } else if (szs[0] > 0) {
+                CHAR16 *options;
+                UINTN i;
+
+                options = (CHAR16 *)(loaded_image->ImageBase + addrs[0]);
+                cmdline_len = szs[0] / sizeof(CHAR16);
+                cmdline = AllocatePool(cmdline_len);
+                for (i = 0; i < cmdline_len; i++)
+                        cmdline[i] = options[i];
         }
 
         if (szs[3] > 0)

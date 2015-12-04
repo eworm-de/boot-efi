@@ -21,6 +21,7 @@
 #include "util.h"
 #include "console.h"
 #include "graphics.h"
+#include "disk.h"
 #include "pefile.h"
 #include "linux.h"
 
@@ -33,6 +34,7 @@ typedef struct {
         CHAR16 *release;
         CHAR16 *file;
         CHAR16 *options;
+        CHAR16 *options_edit;
         CHAR16 key;
         EFI_HANDLE *device;
         EFI_STATUS (*call)(VOID);
@@ -43,8 +45,7 @@ typedef struct {
         ConfigEntry **entries;
         UINTN entry_count;
         INTN idx_default;
-        CHAR16 *options_edit;
-        CHAR16 *loaded_image_path;
+        EFI_LOADED_IMAGE *loaded_image;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -330,6 +331,8 @@ static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
 }
 
 static VOID print_status(Config *config) {
+        CHAR16 *s;
+        CHAR16 uuid[37];
         UINT64 key;
         UINTN i;
         CHAR8 *b;
@@ -342,10 +345,18 @@ static VOID print_status(Config *config) {
 
         Print(L"boot-efi version:       " VERSION "\n");
         Print(L"architecture:           " EFI_MACHINE_TYPE_NAME "\n");
-        Print(L"loaded image:           %s\n", config->loaded_image_path);
         Print(L"UEFI specification:     %d.%02d\n", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
         Print(L"firmware vendor:        %s\n", ST->FirmwareVendor);
         Print(L"firmware version:       %d.%02d\n", ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+
+        s = DevicePathToStr(config->loaded_image->FilePath);
+        if (s) {
+                Print(L"loaded image:           %s\n", s);
+                FreePool(s);
+        }
+
+        if (disk_get_part_uuid(config->loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                Print(L"Partition UUID:         %s\n", uuid);
 
         if (uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x, &y) == EFI_SUCCESS)
                 Print(L"console size:           %d x %d\n", x, y);
@@ -384,20 +395,18 @@ static VOID print_status(Config *config) {
                 Print(L"release                 '%s'\n", entry->release);
                 if (entry->file)
                         Print(L"file                    '%s'\n", entry->file);
+                if (entry->options)
+                        Print(L"options                 '%s'\n", entry->options);
                 if (entry->device) {
                         EFI_DEVICE_PATH *device_path;
-                        CHAR16 *str;
-
                         device_path = DevicePathFromHandle(entry->device);
                         if (device_path) {
-                                str = DevicePathToStr(device_path);
-                                Print(L"device handle           '%s'\n", str);
-                                FreePool(str);
+                                s = DevicePathToStr(device_path);
+                                Print(L"device handle           '%s'\n", s);
+                                FreePool(s);
                         }
                 }
                 Print(L"editor:                 %s\n", yes_no(entry->flags & ENTRY_EDITOR));
-                if (entry->options)
-                        Print(L"options                 '%s'\n", entry->options);
                 Print(L"auto-select             %s\n", yes_no(entry->flags & ENTRY_AUTOSELECT));
                 if (entry->call)
                         Print(L"internal call           yes\n");
@@ -626,7 +635,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1);
-                        if (line_edit(config->entries[idx_highlight]->options, &config->options_edit, x_max-1, y_max-1))
+                        if (line_edit(config->entries[idx_highlight]->options, &config->entries[idx_highlight]->options_edit, x_max-1, y_max-1))
                                 exit = TRUE;
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1);
@@ -873,7 +882,7 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
-static EFI_STATUS config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_image, EFI_FILE *root_dir) {
+static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
         EFI_FILE_HANDLE linux_dir;
         EFI_STATUS err;
 
@@ -928,7 +937,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *load
                         file_read_str(linux_dir, f->FileName, offs[1], szs[1], &options);
 
                 file = PoolPrint(L"\\EFI\\bus1\\%s", f->FileName);
-                config_entry_add_file(config, loaded_image->DeviceHandle, root_dir,
+                config_entry_add_file(config, config->loaded_image->DeviceHandle, root_dir,
                                       release, 'l', file, options, ENTRY_EDITOR|ENTRY_AUTOSELECT);
 
                 FreePool(release);
@@ -941,10 +950,9 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *load
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, const ConfigEntry *entry) {
+static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry) {
         EFI_HANDLE image;
         EFI_DEVICE_PATH *path;
-        CHAR16 *options;
         EFI_STATUS err;
 
         path = FileDevicePath(entry->device, entry->file);
@@ -961,13 +969,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
                 goto out;
         }
 
-        if (config->options_edit)
-                options = config->options_edit;
-        else if (entry->options)
-                options = entry->options;
-        else
-                options = NULL;
-        if (options) {
+        if (entry->options_edit) {
                 EFI_LOADED_IMAGE *loaded_image;
 
                 err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
@@ -977,7 +979,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         goto out_unload;
                 }
-                loaded_image->LoadOptions = options;
+                loaded_image->LoadOptions = entry->options_edit;
                 loaded_image->LoadOptionsSize = (StrLen(loaded_image->LoadOptions)+1) * sizeof(CHAR16);
         }
 
@@ -1018,14 +1020,11 @@ static VOID config_free(Config *config) {
         for (i = 0; i < config->entry_count; i++)
                 config_entry_free(config->entries[i]);
         FreePool(config->entries);
-        FreePool(config->options_edit);
-        FreePool(config->loaded_image_path);
 }
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         CHAR8 *b;
         UINTN size;
-        EFI_LOADED_IMAGE *loaded_image;
         EFI_FILE *root_dir;
         EFI_STATUS err;
         Config config = {};
@@ -1033,7 +1032,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINT64 key;
 
         InitializeLib(image, sys_table);
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
+        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&config.loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(err)) {
                 Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
@@ -1041,28 +1040,24 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return err;
         }
 
-        root_dir = LibOpenRoot(loaded_image->DeviceHandle);
+        root_dir = LibOpenRoot(config.loaded_image->DeviceHandle);
         if (!root_dir) {
                 Print(L"Unable to open root directory: %r ", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return EFI_LOAD_ERROR;
         }
 
-
-        /* the filesystem path to this binary */
-        config.loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-
         /* scan /EFI/bus1/ directory */
-        config_entry_add_linux(&config, loaded_image, root_dir);
+        config_entry_add_linux(&config, root_dir);
 
         /* sort entries by release string */
         config_sort_entries(&config);
 
         /* check for some well-known files, add them to the end of the list */
-        config_entry_add_file(&config, loaded_image->DeviceHandle, root_dir,
-                                     L"windows", 'w', L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi", NULL, 0);
-        config_entry_add_file(&config, loaded_image->DeviceHandle, root_dir,
-                                     L"shell", 's', L"\\shell" EFI_MACHINE_TYPE_NAME ".efi", NULL, 0);
+        config_entry_add_file(&config, config.loaded_image->DeviceHandle, root_dir,
+                              L"windows", 'w', L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi", NULL, 0);
+        config_entry_add_file(&config, config.loaded_image->DeviceHandle, root_dir,
+                              L"shell", 's', L"\\shell" EFI_MACHINE_TYPE_NAME ".efi", NULL, 0);
         config_entry_add_osx(&config);
 
         if (efivar_get(NULL, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
@@ -1110,7 +1105,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 }
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
-                err = image_start(image, &config, entry);
+                err = image_start(image, entry);
                 if (EFI_ERROR(err)) {
                         graphics_mode(FALSE);
                         Print(L"\nFailed to execute %s (%s): %r\n", entry->release, entry->file, err);

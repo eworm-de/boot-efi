@@ -129,10 +129,10 @@ INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHA
                 EFI_FILE_INFO *info;
 
                 info = LibFileInfo(handle);
-                buflen = info->FileSize+2;
+                buflen = info->FileSize;
                 FreePool(info);
         } else
-                buflen = size;
+                buflen = size ;
 
         if (off > 0) {
                 err = uefi_call_wrapper(handle->SetPosition, 2, handle, off);
@@ -140,12 +140,12 @@ INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHA
                         return err;
         }
 
-        buf = AllocatePool(buflen);
+        buf = AllocatePool(buflen + sizeof(CHAR16));
         err = uefi_call_wrapper(handle->Read, 3, handle, &buflen, buf);
         if (!EFI_ERROR(err)) {
-                buf[buflen / 2] = '\0';
+                buf[buflen / sizeof(CHAR16)] = '\0';
                 *str = buf;
-                len = buflen / 2;
+                len = buflen / sizeof(CHAR16);
         } else {
                 len = err;
                 FreePool(buf);
