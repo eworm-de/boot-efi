@@ -27,4 +27,4 @@ Makefile.in
 /stub.so
 /bootx64.efi
 /stubx64.efi
-/test-efi-disk.img
+/efi-disk.img

@@ -45,8 +45,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN addrs[ELEMENTSOF(sections)-1] = {};
         UINTN offs[ELEMENTSOF(sections)-1] = {};
         UINTN szs[ELEMENTSOF(sections)-1] = {};
-        CHAR8 *cmdline = NULL;
-        UINTN cmdline_len = 0;
+        CHAR16 *options = NULL;
+        UINTN options_len = 0;
+        UINTN i;
+        CHAR8 *cmdline;
+        UINTN cmdline_len;
         EFI_STATUS err;
 
         InitializeLib(image, sys_table);
@@ -70,10 +73,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!loaded_image_path)
                 return EFI_LOAD_ERROR;
 
-        err = disk_get_disk_uuid(loaded_image->DeviceHandle, uuid);
-        if (EFI_ERROR(err))
-                return err;
-
         err = pefile_locate_sections(root_dir, loaded_image_path, sections, addrs, offs, szs);
         if (EFI_ERROR(err)) {
                 Print(L"Unable to locate embedded .linux section: %r\n", err);
@@ -89,23 +88,28 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         if (!secure && loaded_image->LoadOptionsSize > 0) {
-                CHAR16 *options;
-                UINTN i;
-
                 options = (CHAR16 *)loaded_image->LoadOptions;
-                cmdline_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16));
-                cmdline = AllocatePool(cmdline_len);
-                for (i = 0; i < cmdline_len; i++)
-                        cmdline[i] = options[i];
+                options_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16));
         } else if (szs[0] > 0) {
-                CHAR16 *options;
-                UINTN i;
-
                 options = (CHAR16 *)(loaded_image->ImageBase + addrs[0]);
-                cmdline_len = szs[0] / sizeof(CHAR16);
-                cmdline = AllocatePool(cmdline_len);
-                for (i = 0; i < cmdline_len; i++)
-                        cmdline[i] = options[i];
+                options_len = szs[0] / sizeof(CHAR16);
+        }
+
+        err = disk_get_disk_uuid(loaded_image->DeviceHandle, uuid);
+        if (EFI_ERROR(err))
+                return err;
+
+        StrLwr(uuid);
+        cmdline_len = StrLen(L"disk=f7e35557-c7b0-4788-a083-5eb131da85c5");
+        cmdline = AllocatePool(cmdline_len + 1 + options_len);
+        CopyMem(cmdline, "disk=", 5);
+        for (i = 0; i < cmdline_len - 5 ; i++)
+                cmdline[5 + i] = uuid[i];
+
+        if (options_len) {
+                cmdline[cmdline_len++] = ' ';
+                for (i = 0; i < options_len; i++)
+                        cmdline[cmdline_len++] = options[i];
         }
 
         if (szs[3] > 0)
