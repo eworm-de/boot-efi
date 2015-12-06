@@ -20,53 +20,6 @@
 
 #include "util.h"
 
-#ifdef __x86_64__
-UINT64 ticks_read(VOID) {
-        UINT64 a, d;
-        __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
-        return (d << 32) | a;
-}
-#elif defined(__i386__)
-UINT64 ticks_read(VOID) {
-        UINT64 val;
-        __asm__ volatile ("rdtsc" : "=A" (val));
-        return val;
-}
-#else
-UINT64 ticks_read(VOID) {
-        UINT64 val = 1;
-        return val;
-}
-#endif
-
-/* count TSC ticks during a millisecond delay */
-UINT64 ticks_freq(VOID) {
-        UINT64 ticks_start, ticks_end;
-
-        ticks_start = ticks_read();
-        uefi_call_wrapper(BS->Stall, 1, 1000);
-        ticks_end = ticks_read();
-
-        return (ticks_end - ticks_start) * 1000;
-}
-
-UINT64 time_usec(VOID) {
-        UINT64 ticks;
-        static UINT64 freq;
-
-        ticks = ticks_read();
-        if (ticks == 0)
-                return 0;
-
-        if (freq == 0) {
-                freq = ticks_freq();
-                if (freq == 0)
-                        return 0;
-        }
-
-        return 1000 * 1000 * ticks / freq;
-}
-
 static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size) {
@@ -104,14 +57,6 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN si
                 flags |= EFI_VARIABLE_NON_VOLATILE;
 
         return uefi_call_wrapper(RT->SetVariable, 5, name, (EFI_GUID *)vendor, flags, size, buf);
-}
-
-CHAR8 *strchra(CHAR8 *s, CHAR8 c) {
-        do {
-                if (*s == c)
-                        return s;
-        } while (*s++);
-        return NULL;
 }
 
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str) {

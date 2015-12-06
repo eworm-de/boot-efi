@@ -18,6 +18,8 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "util.h"
+
 typedef struct {
         UINT8   signature[8];
         UINT32  revision;
@@ -57,7 +59,8 @@ EFI_STATUS disk_get_disk_uuid(EFI_HANDLE *part_handle, CHAR16 uuid[37]) {
                 return EFI_NOT_FOUND;
 
         for (node = part_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
-                EFI_DEVICE_PATH *disk_path, *p;
+                _c_cleanup_(CFreePoolP) EFI_DEVICE_PATH *disk_path = NULL;
+                EFI_DEVICE_PATH *p;
                 EFI_HANDLE disk_handle;
                 EFI_BLOCK_IO *block_io;
                 GPTHeader gpt_header = {};
@@ -68,7 +71,6 @@ EFI_STATUS disk_get_disk_uuid(EFI_HANDLE *part_handle, CHAR16 uuid[37]) {
                 disk_path = path_parent(part_path, node);
                 p = disk_path;
                 r = uefi_call_wrapper(BS->LocateDevicePath, 3, &BlockIoProtocol, &p, &disk_handle);
-                FreePool(disk_path);
                 if (EFI_ERROR(r))
                         continue;
 

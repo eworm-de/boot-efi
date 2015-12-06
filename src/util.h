@@ -19,20 +19,25 @@
 #include <efi.h>
 #include <efilib.h>
 
-#define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
+#define C_ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
+
+#define _c_cleanup_(_x) __attribute__((__cleanup__(_x)))
+
+#define C_DEFINE_CLEANUP_FUNC(type, func)      \
+        static inline VOID func##p(type *p) {  \
+                if (*p)                        \
+                        func(*p);              \
+        }                                      \
+        struct __useless_struct_to_allow_trailing_semicolon__
+
+static inline VOID CFreePoolP(VOID *p) {
+        FreePool(*(VOID **)p);
+}
 
 static inline const CHAR16 *yes_no(BOOLEAN b) {
         return b ? L"yes" : L"no";
 }
-
-UINT64 ticks_read(void);
-UINT64 ticks_freq(void);
-UINT64 time_usec(void);
-
 EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent);
 EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size);
-
-CHAR8 *strchra(CHAR8 *s, CHAR8 c);
-CHAR16 *stra_to_str(CHAR8 *stra);
 
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str);

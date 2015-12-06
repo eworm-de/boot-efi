@@ -63,11 +63,11 @@ static VOID cursor_right(UINTN *cursor, UINTN *first, UINTN x_max, UINTN len) {
 }
 
 static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN y_pos) {
-        CHAR16 *line;
+        _c_cleanup_(CFreePoolP) CHAR16 *line = NULL;
+        _c_cleanup_(CFreePoolP) CHAR16 *print = NULL;
         UINTN size;
         UINTN len;
         UINTN first;
-        CHAR16 *print;
         UINTN cursor;
         UINTN clear;
         BOOLEAN exit;
@@ -299,8 +299,6 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
         }
 
         uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
-        FreePool(print);
-        FreePool(line);
         return enter;
 }
 
@@ -400,11 +398,9 @@ static VOID print_status(Config *config) {
                 if (entry->device) {
                         EFI_DEVICE_PATH *device_path;
                         device_path = DevicePathFromHandle(entry->device);
-                        if (device_path) {
-                                s = DevicePathToStr(device_path);
-                                Print(L"device handle           '%s'\n", s);
-                                FreePool(s);
-                        }
+                        s = DevicePathToStr(device_path);
+                        Print(L"device handle           '%s'\n", s);
+                        FreePool(s);
                 }
                 Print(L"editor:                 %s\n", yes_no(entry->flags & ENTRY_EDITOR));
                 Print(L"auto-select             %s\n", yes_no(entry->flags & ENTRY_AUTOSELECT));
@@ -899,12 +895,12 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         (UINT8 *)".options",
                         NULL
                 };
-                UINTN offs[ELEMENTSOF(sections)-1] = {};
-                UINTN szs[ELEMENTSOF(sections)-1] = {};
-                UINTN addrs[ELEMENTSOF(sections)-1] = {};
-                CHAR16 *release = NULL;
-                CHAR16 *options = NULL;
-                CHAR16 *file = NULL;
+                UINTN offs[C_ARRAY_SIZE(sections)-1] = {};
+                UINTN szs[C_ARRAY_SIZE(sections)-1] = {};
+                UINTN addrs[C_ARRAY_SIZE(sections)-1] = {};
+                _c_cleanup_(CFreePoolP) CHAR16 *release = NULL;
+                _c_cleanup_(CFreePoolP) CHAR16 *options = NULL;
+                _c_cleanup_(CFreePoolP) CHAR16 *file = NULL;
                 UINTN len;
 
                 bufsize = sizeof(buf);
@@ -939,10 +935,6 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 file = PoolPrint(L"\\EFI\\bus1\\%s", f->FileName);
                 config_entry_add_file(config, config->loaded_image->DeviceHandle, root_dir,
                                       release, 'l', file, options, ENTRY_EDITOR|ENTRY_AUTOSELECT);
-
-                FreePool(release);
-                FreePool(options);
-                FreePool(file);
         }
 
         uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
@@ -951,8 +943,8 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
 }
 
 static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry) {
+        _c_cleanup_(CFreePoolP) EFI_DEVICE_PATH *path = NULL;
         EFI_HANDLE image;
-        EFI_DEVICE_PATH *path;
         EFI_STATUS err;
 
         path = FileDevicePath(entry->device, entry->file);
@@ -966,7 +958,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry)
         if (EFI_ERROR(err)) {
                 Print(L"Error loading %s: %r", entry->file, err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                goto out;
+                return err;
         }
 
         if (entry->options_edit) {
@@ -979,15 +971,15 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry)
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         goto out_unload;
                 }
+
                 loaded_image->LoadOptions = entry->options_edit;
                 loaded_image->LoadOptionsSize = (StrLen(loaded_image->LoadOptions)+1) * sizeof(CHAR16);
         }
 
         err = uefi_call_wrapper(BS->StartImage, 3, image, NULL, NULL);
+
 out_unload:
         uefi_call_wrapper(BS->UnloadImage, 1, image);
-out:
-        FreePool(path);
         return err;
 }
 

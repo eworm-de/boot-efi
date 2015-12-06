@@ -42,9 +42,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 (UINT8 *)".splash",
                 NULL
         };
-        UINTN addrs[ELEMENTSOF(sections)-1] = {};
-        UINTN offs[ELEMENTSOF(sections)-1] = {};
-        UINTN szs[ELEMENTSOF(sections)-1] = {};
+        UINTN addrs[C_ARRAY_SIZE(sections)-1] = {};
+        UINTN offs[C_ARRAY_SIZE(sections)-1] = {};
+        UINTN szs[C_ARRAY_SIZE(sections)-1] = {};
         CHAR16 *options = NULL;
         UINTN options_len = 0;
         UINTN i;
