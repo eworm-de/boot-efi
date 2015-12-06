@@ -36,30 +36,36 @@ typedef struct {
         UINT8   reserved2[420];
 } GPTHeader;
 
+EFI_DEVICE_PATH *path_parent(EFI_DEVICE_PATH *path, EFI_DEVICE_PATH *node) {
+        EFI_DEVICE_PATH *parent;
+        UINTN len;
+
+        len = (UINT8 *)NextDevicePathNode(node) - (UINT8 *)path;
+        parent = (EFI_DEVICE_PATH *)AllocatePool(len + sizeof(EFI_DEVICE_PATH));
+        CopyMem(parent, path, len);
+        CopyMem((UINT8 *)parent + len, EndDevicePath, sizeof(EFI_DEVICE_PATH));
+        return parent;
+}
+
 EFI_STATUS disk_get_disk_uuid(EFI_HANDLE *part_handle, CHAR16 uuid[37]) {
         EFI_DEVICE_PATH *part_path;
-        EFI_DEVICE_PATH *path;
+        EFI_DEVICE_PATH *node;
         EFI_STATUS r;
 
         part_path = DevicePathFromHandle(part_handle);
         if (!part_path)
                 return EFI_NOT_FOUND;
 
-        for (path = part_path; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
+        for (node = part_path; !IsDevicePathEnd(node); node = NextDevicePathNode(node)) {
                 EFI_DEVICE_PATH *disk_path, *p;
                 EFI_HANDLE disk_handle;
-                UINTN len;
                 EFI_BLOCK_IO *block_io;
                 GPTHeader gpt_header = {};
 
-                if (DevicePathType(path) != MESSAGING_DEVICE_PATH)
+                if (DevicePathType(node) != MESSAGING_DEVICE_PATH)
                         continue;
 
-                len = (UINT8 *)NextDevicePathNode(path) - (UINT8 *)part_path;
-                disk_path = (EFI_DEVICE_PATH *)AllocatePool(len + sizeof(EFI_DEVICE_PATH));
-                CopyMem(disk_path, part_path, len);
-                CopyMem((UINT8 *)disk_path + len, EndDevicePath, sizeof(EFI_DEVICE_PATH));
-
+                disk_path = path_parent(part_path, node);
                 p = disk_path;
                 r = uefi_call_wrapper(BS->LocateDevicePath, 3, &BlockIoProtocol, &p, &disk_handle);
                 FreePool(disk_path);
