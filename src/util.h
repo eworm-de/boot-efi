@@ -23,13 +23,6 @@
 
 #define _c_cleanup_(_x) __attribute__((__cleanup__(_x)))
 
-#define C_DEFINE_CLEANUP_FUNC(type, func)      \
-        static inline VOID func##p(type *p) {  \
-                if (*p)                        \
-                        func(*p);              \
-        }                                      \
-        struct __useless_struct_to_allow_trailing_semicolon__
-
 static inline VOID CFreePoolP(VOID *p) {
         FreePool(*(VOID **)p);
 }
