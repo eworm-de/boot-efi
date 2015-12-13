@@ -1,10 +1,31 @@
+bus1 - UEFI Boot Manager
+
 bootx64.efi: Boot Manager
- - searches EFI binaries in (ESP)/EFI/bus1/*.efi
- - executes the latest release version
- - if a key is pressed during bootup, a menu is drawn showing all found binaries
- - built-in command line editor
+        - searches EFI binaries in (ESP)/EFI/bus1/*.efi
+        - executes the latest release version (versionsort)
+        - if a key is pressed during bootup, a menu is drawn showing all found
+          binaries
+        - built-in command line editor
+        - built-in Windows and OS X boot loader detection
 
 stubx64.efi: Boot Code Stub
- - executes the embedded PE-sections which contain the kernel, initrd,
-   kernel cmdline, release string
- - shows the splash screen from the embedded PE section
+        - executes the embedded PE-sections which contain the kernel, initrd,
+          kernel cmdline, release string
+        - shows the splash screen from the embedded PE section
+
+DETAILS:
+        https://github.com/bus1/boot-efi
+
+BUG REPORTS:
+        https://github.com/bus1/boot-efi/issues
+
+GIT:
+        git@github.com:bus1/boot-efi.git
+        https://github.com/bus1/boot-efi.git
+
+GITWEB:
+        https://github.com/bus1/boot-efi
+
+LICENSE:
+        LGPLv2.1+ (LICENSE.LGPL2.1)
+        See COPYING for details.
