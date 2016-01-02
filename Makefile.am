@@ -11,6 +11,7 @@ bootlibdir = $(prefix)/lib/bus1/boot-efi
 efi_cppflags = \
 	$(EFI_CPPFLAGS) \
 	-I$(top_builddir) -include config.h \
+	-I$(top_srcdir)/src/shared \
 	-I$(EFI_INC_DIR)/efi \
 	-I$(EFI_INC_DIR)/efi/$(EFI_ARCH) \
 	-DEFI_MACHINE_TYPE_NAME=\"$(EFI_MACHINE_TYPE_NAME)\"
@@ -67,19 +68,19 @@ endif
 
 # ------------------------------------------------------------------------------
 boot_headers = \
-	src/util.h \
-	src/console.h \
-	src/disk.h \
-	src/graphics.h \
-	src/pefile.h
+	src/shared/disk.h \
+	src/shared/graphics.h \
+	src/shared/pefile.h \
+	src/shared/util.h \
+	src/boot/console.h
 
 boot_sources = \
-	src/util.c \
-	src/console.c \
-	src/disk.c \
-	src/graphics.c \
-	src/pefile.c \
-	src/boot.c
+	src/shared/disk.c \
+	src/shared/graphics.c \
+	src/shared/pefile.c \
+	src/shared/util.c \
+	src/boot/console.c \
+	src/boot/main.c
 
 EXTRA_DIST = $(boot_sources) $(boot_headers)
 
@@ -92,7 +93,7 @@ CLEANFILES = $(boot_objects) $(boot_solib) $(boot)
 
 $(top_builddir)/src/%.o: $(top_srcdir)/src/%.c $(addprefix $(top_srcdir)/,$(boot_headers))
 	@$(MKDIR_P) $(top_builddir)/src/
-	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
+	$(AM_V_CC)$(EFI_CC) -I$(top_srcdir)/src/boot $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
 $(boot_solib): $(boot_objects)
 	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(boot_objects) \
@@ -105,21 +106,21 @@ $(boot): $(boot_solib)
 
 # ------------------------------------------------------------------------------
 stub_headers = \
-	src/util.h \
-	src/disk.h \
-	src/pefile.h \
-	src/graphics.h \
-	src/splash.h \
-	src/linux.h
+	src/shared/disk.h \
+	src/shared/graphics.h \
+	src/shared/pefile.h \
+	src/shared/util.h \
+	src/stub/linux.h \
+	src/stub/splash.h
 
 stub_sources = \
-	src/util.c \
-	src/disk.c \
-	src/pefile.c \
-	src/graphics.c \
-	src/splash.c \
-	src/linux.c \
-	src/stub.c
+	src/shared/disk.c \
+	src/shared/graphics.c \
+	src/shared/pefile.c \
+	src/shared/util.c \
+	src/stub/linux.c \
+	src/stub/splash.c \
+	src/stub/main.c
 
 EXTRA_DIST += \
 	$(stub_sources) \
@@ -135,7 +136,7 @@ CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 
 $(top_builddir)/src/%.o: $(top_srcdir)/src/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
 	@$(MKDIR_P) $(top_builddir)/src
-	$(AM_V_CC)$(EFI_CC) $(efi_cppflags) $(efi_cflags) -c $< -o $@
+	$(AM_V_CC)$(EFI_CC) -I$(top_srcdir)/src/stub $(efi_cppflags) $(efi_cflags) -c $< -o $@
 
 $(stub_solib): $(stub_objects)
 	$(AM_V_CCLD)$(LD) $(efi_ldflags) $(stub_objects) \

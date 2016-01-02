@@ -23,7 +23,6 @@
 #include "graphics.h"
 #include "disk.h"
 #include "pefile.h"
-#include "linux.h"
 
 enum {
         ENTRY_EDITOR            = 1ULL <<  0,

@@ -4,7 +4,7 @@ AC_INIT([boot-efi],
         [boot-efi],
         [http://www.github.com/bus1/boot-efi])
 
-AC_CONFIG_SRCDIR([src/boot.c])
+AC_CONFIG_SRCDIR([src/shared/util.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
