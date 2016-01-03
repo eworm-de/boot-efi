@@ -69,7 +69,8 @@ struct PeSectionHeader {
 } __attribute__((packed));
 
 
-EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path, CHAR8 **sections, UINTN *addrs, UINTN *offsets, UINTN *sizes) {
+EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path,
+                                  CHAR8 **sections, UINTN n_sections, UINTN *addrs, UINTN *offsets, UINTN *sizes) {
         EFI_FILE_HANDLE handle;
         struct DosFileHeader dos;
         uint8_t magic[4];
@@ -144,7 +145,7 @@ EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path, CHAR8 **sections,
 
         for (i = 0; i < pe.NumberOfSections; i++) {
                 struct PeSectionHeader sect;
-                UINTN j;
+                UINTN n;
 
                 len = sizeof(sect);
                 err = uefi_call_wrapper(handle->Read, 3, handle, &len, &sect);
@@ -154,16 +155,16 @@ EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path, CHAR8 **sections,
                         err = EFI_LOAD_ERROR;
                         goto out;
                 }
-                for (j = 0; sections[j]; j++) {
-                        if (CompareMem(sect.Name, sections[j], strlena(sections[j])) != 0)
+                for (n = 0; n < n_sections; n++) {
+                        if (CompareMem(sect.Name, sections[n], strlena(sections[n])) != 0)
                                 continue;
 
                         if (addrs)
-                                addrs[j] = (UINTN)sect.VirtualAddress;
+                                addrs[n] = (UINTN)sect.VirtualAddress;
                         if (offsets)
-                                offsets[j] = (UINTN)sect.PointerToRawData;
+                                offsets[n] = (UINTN)sect.PointerToRawData;
                         if (sizes)
-                                sizes[j] = (UINTN)sect.VirtualSize;
+                                sizes[n] = (UINTN)sect.VirtualSize;
                 }
         }
 

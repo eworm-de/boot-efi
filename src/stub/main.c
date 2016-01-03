@@ -35,16 +35,21 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         CHAR8 *b;
         UINTN size;
         BOOLEAN secure = FALSE;
-        CHAR8 *sections[] = {
-                (UINT8 *)".options",
-                (UINT8 *)".linux",
-                (UINT8 *)".initrd",
-                (UINT8 *)".splash",
-                NULL
+        enum {
+                SECTION_INITRD,
+                SECTION_LINUX,
+                SECTION_OPTIONS,
+                SECTION_SPLASH,
         };
-        UINTN addrs[C_ARRAY_SIZE(sections)-1] = {};
-        UINTN offs[C_ARRAY_SIZE(sections)-1] = {};
-        UINTN szs[C_ARRAY_SIZE(sections)-1] = {};
+        CHAR8 *sections[] = {
+                [SECTION_INITRD] = (UINT8 *)".initrd",
+                [SECTION_LINUX] = (UINT8 *)".linux",
+                [SECTION_OPTIONS] = (UINT8 *)".options",
+                [SECTION_SPLASH] = (UINT8 *)".splash",
+        };
+        UINTN addrs[C_ARRAY_SIZE(sections)] = {};
+        UINTN offs[C_ARRAY_SIZE(sections)] = {};
+        UINTN szs[C_ARRAY_SIZE(sections)] = {};
         CHAR16 *options = NULL;
         UINTN options_len = 0;
         UINTN i;
@@ -73,9 +78,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!loaded_image_path)
                 return EFI_LOAD_ERROR;
 
-        err = pefile_locate_sections(root_dir, loaded_image_path, sections, addrs, offs, szs);
+        err = pefile_locate_sections(root_dir, loaded_image_path, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
         if (EFI_ERROR(err)) {
-                Print(L"Unable to locate embedded .linux section: %r\n", err);
+                Print(L"Unable to locate embedded PE/COFF sections: %r\n", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
         }
@@ -90,9 +95,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!secure && loaded_image->LoadOptionsSize > 0) {
                 options = (CHAR16 *)loaded_image->LoadOptions;
                 options_len = (loaded_image->LoadOptionsSize / sizeof(CHAR16));
-        } else if (szs[0] > 0) {
-                options = (CHAR16 *)(loaded_image->ImageBase + addrs[0]);
-                options_len = szs[0] / sizeof(CHAR16);
+        } else if (szs[SECTION_OPTIONS] > 0) {
+                options = (CHAR16 *)(loaded_image->ImageBase + addrs[SECTION_OPTIONS]);
+                options_len = szs[SECTION_OPTIONS] / sizeof(CHAR16);
         }
 
         err = disk_get_disk_uuid(loaded_image->DeviceHandle, uuid);
@@ -115,12 +120,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         cmdline[cmdline_len++] = options[i];
         }
 
-        if (szs[3] > 0)
-                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
+        if (szs[SECTION_SPLASH] > 0)
+                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH], NULL);
 
         err = linux_exec(image, cmdline, cmdline_len,
-                         (UINTN)loaded_image->ImageBase + addrs[1],
-                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
+                         (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],
+                         (UINTN)loaded_image->ImageBase + addrs[SECTION_INITRD], szs[SECTION_INITRD]);
 
         graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", err);

@@ -17,4 +17,4 @@
 ***/
 
 EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path,
-                                  CHAR8 **sections, UINTN *addrs, UINTN *offsets, UINTN *sizes);
+                                  CHAR8 **sections, UINTN n_sections, UINTN *addrs, UINTN *offsets, UINTN *sizes);

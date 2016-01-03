@@ -889,14 +889,17 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 CHAR16 buf[256];
                 UINTN bufsize;
                 EFI_FILE_INFO *f;
-                CHAR8 *sections[] = {
-                        (UINT8 *)".release",
-                        (UINT8 *)".options",
-                        NULL
+                enum {
+                        SECTION_RELEASE,
+                        SECTION_OPTIONS,
                 };
-                UINTN offs[C_ARRAY_SIZE(sections)-1] = {};
-                UINTN szs[C_ARRAY_SIZE(sections)-1] = {};
-                UINTN addrs[C_ARRAY_SIZE(sections)-1] = {};
+                CHAR8 *sections[] = {
+                        [SECTION_RELEASE] = (UINT8 *)".release",
+                        [SECTION_OPTIONS] = (UINT8 *)".options",
+                };
+                UINTN offs[C_ARRAY_SIZE(sections)] = {};
+                UINTN szs[C_ARRAY_SIZE(sections)] = {};
+                UINTN addrs[C_ARRAY_SIZE(sections)] = {};
                 _c_cleanup_(CFreePoolP) CHAR16 *release = NULL;
                 _c_cleanup_(CFreePoolP) CHAR16 *options = NULL;
                 _c_cleanup_(CFreePoolP) CHAR16 *file = NULL;
@@ -919,17 +922,17 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         continue;
 
                 /* look for .release and .options sections in the .efi binary */
-                err = pefile_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
+                err = pefile_locate_sections(linux_dir, f->FileName, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
                 if (EFI_ERROR(err))
                         continue;
 
-                if (szs[0] == 0)
+                if (szs[SECTION_RELEASE] == 0)
                         continue;
-                if (file_read_str(linux_dir, f->FileName, offs[0], szs[0], &release) <= 0)
+                if (file_read_str(linux_dir, f->FileName, offs[SECTION_RELEASE], szs[SECTION_RELEASE], &release) <= 0)
                         continue;
 
-                if (szs[1] > 0)
-                        file_read_str(linux_dir, f->FileName, offs[1], szs[1], &options);
+                if (szs[SECTION_OPTIONS] > 0)
+                        file_read_str(linux_dir, f->FileName, offs[SECTION_OPTIONS], szs[SECTION_OPTIONS], &options);
 
                 file = PoolPrint(L"\\EFI\\bus1\\%s", f->FileName);
                 config_entry_add_file(config, config->loaded_image->DeviceHandle, root_dir,
