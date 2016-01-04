@@ -878,10 +878,10 @@ static VOID config_entry_add_osx(Config *config) {
 }
 
 static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
-        EFI_FILE_HANDLE linux_dir;
+        EFI_FILE_HANDLE bus1_dir;
         EFI_STATUS err;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, L"\\EFI\\bus1", EFI_FILE_MODE_READ, 0ULL);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\bus1", EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 
@@ -903,10 +903,10 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 _c_cleanup_(CFreePoolP) CHAR16 *release = NULL;
                 _c_cleanup_(CFreePoolP) CHAR16 *options = NULL;
                 _c_cleanup_(CFreePoolP) CHAR16 *file = NULL;
-                UINTN len;
+                UINTN name_base_len;
 
                 bufsize = sizeof(buf);
-                err = uefi_call_wrapper(linux_dir->Read, 3, linux_dir, &bufsize, buf);
+                err = uefi_call_wrapper(bus1_dir->Read, 3, bus1_dir, &bufsize, buf);
                 if (bufsize == 0 || EFI_ERROR(err))
                         break;
 
@@ -915,31 +915,39 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         continue;
                 if (f->Attribute & EFI_FILE_DIRECTORY)
                         continue;
-                len = StrLen(f->FileName);
-                if (len < 5)
+
+                name_base_len = StrLen(f->FileName);
+                if (name_base_len < 5)
                         continue;
-                if (StriCmp(f->FileName + len - 4, L".efi") != 0)
+                name_base_len -= 4;
+
+                /* require .efi extension */
+                if (StriCmp(f->FileName + name_base_len, L".efi") != 0)
                         continue;
 
                 /* look for .release and .options sections in the .efi binary */
-                err = pefile_locate_sections(linux_dir, f->FileName, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+                err = pefile_locate_sections(bus1_dir, f->FileName, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
                 if (EFI_ERROR(err))
                         continue;
 
                 if (szs[SECTION_RELEASE] == 0)
                         continue;
-                if (file_read_str(linux_dir, f->FileName, offs[SECTION_RELEASE], szs[SECTION_RELEASE], &release) <= 0)
+                if (file_read_str(bus1_dir, f->FileName, offs[SECTION_RELEASE], szs[SECTION_RELEASE], &release) <= 0)
+                        continue;
+
+                /* require the file name to match the release name */
+                if (StrniCmp(f->FileName, release, name_base_len) != 0)
                         continue;
 
                 if (szs[SECTION_OPTIONS] > 0)
-                        file_read_str(linux_dir, f->FileName, offs[SECTION_OPTIONS], szs[SECTION_OPTIONS], &options);
+                        file_read_str(bus1_dir, f->FileName, offs[SECTION_OPTIONS], szs[SECTION_OPTIONS], &options);
 
                 file = PoolPrint(L"\\EFI\\bus1\\%s", f->FileName);
                 config_entry_add_file(config, config->loaded_image->DeviceHandle, root_dir,
                                       release, 'l', file, options, ENTRY_EDITOR|ENTRY_AUTOSELECT);
         }
 
-        uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
+        uefi_call_wrapper(bus1_dir->Close, 1, bus1_dir);
 
         return EFI_SUCCESS;
 }

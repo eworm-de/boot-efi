@@ -104,13 +104,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (EFI_ERROR(err))
                 return err;
 
-        cmdline_len = StrLen(L"disk=f7e35557-c7b0-4788-a083-5eb131da85c5");
+        cmdline_len = 5 + 36;
         cmdline = AllocatePool(cmdline_len + 1 + options_len);
         CopyMem(cmdline, "disk=", 5);
         for (i = 0; i < cmdline_len - 5 ; i++) {
-                /* some firmwares do not implement StrLwr() */
+                /* we expect the UUID to be lowercase */
                 if (uuid[i] >= 'A' && uuid[i] <= 'Z')
                         uuid[i] |= 0x20;
+
                 cmdline[5 + i] = uuid[i];
         }
 

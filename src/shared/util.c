@@ -59,6 +59,24 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN si
         return uefi_call_wrapper(RT->SetVariable, 5, name, (EFI_GUID *)vendor, flags, size, buf);
 }
 
+INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n) {
+        while (*s1 && n != 0) {
+                if (*s1 >= 'A' && *s1 <= 'Z') {
+                        if ((*s1 | 0x20) != (*s2 | 0x20))
+                                break;
+                } else {
+                        if (*s1 != *s2)
+                                break;
+                }
+
+                s1  += 1;
+                s2 += 1;
+                n -= 1;
+        }
+
+        return n > 0 ? *s1 - *s2 : 0;
+}
+
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str) {
         EFI_FILE_HANDLE handle;
         CHAR16 *buf;

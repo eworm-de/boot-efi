@@ -33,4 +33,6 @@ static inline const CHAR16 *yes_no(BOOLEAN b) {
 EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent);
 EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size);
 
+INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n);
+
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str);
