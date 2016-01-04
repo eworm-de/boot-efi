@@ -879,6 +879,7 @@ static VOID config_entry_add_osx(Config *config) {
 
 static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
         EFI_FILE_HANDLE bus1_dir;
+        EFI_FILE_HANDLE handle;
         EFI_STATUS err;
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\bus1", EFI_FILE_MODE_READ, 0ULL);
@@ -926,7 +927,12 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         continue;
 
                 /* look for .release and .options sections in the .efi binary */
-                err = pefile_locate_sections(bus1_dir, f->FileName, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+                err = uefi_call_wrapper(bus1_dir->Open, 5, bus1_dir, &handle, f->FileName, EFI_FILE_MODE_READ, 0ULL);
+                if (EFI_ERROR(err))
+                        continue;
+
+                err = pefile_locate_sections(handle, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+                uefi_call_wrapper(handle->Close, 1, handle);
                 if (EFI_ERROR(err))
                         continue;
 

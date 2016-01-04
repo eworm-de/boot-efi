@@ -31,6 +31,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
         EFI_FILE *root_dir;
         CHAR16 *loaded_image_path;
+        EFI_FILE_HANDLE handle;
         CHAR16 uuid[37] = {};
         CHAR8 *b;
         UINTN size;
@@ -78,14 +79,18 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!loaded_image_path)
                 return EFI_LOAD_ERROR;
 
-        err = pefile_locate_sections(root_dir, loaded_image_path, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, loaded_image_path, EFI_FILE_MODE_READ, 0ULL);
+        FreePool(loaded_image_path);
+        if (EFI_ERROR(err))
+                return err;
+
+        err = pefile_locate_sections(handle, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+        uefi_call_wrapper(handle->Close, 1, handle);
         if (EFI_ERROR(err)) {
                 Print(L"Unable to locate embedded PE/COFF sections: %r\n", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
         }
-
-        FreePool(loaded_image_path);
 
         if (secure && loaded_image->LoadOptionsSize > 0) {
                 Print(L"Secure Boot active, ignoring custom kernel command line.\n");

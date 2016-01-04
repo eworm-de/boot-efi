@@ -68,93 +68,77 @@ struct PeSectionHeader {
         UINT32  Characteristics;
 } __attribute__((packed));
 
-
-EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path,
-                                  CHAR8 **sections, UINTN n_sections, UINTN *addrs, UINTN *offsets, UINTN *sizes) {
-        EFI_FILE_HANDLE handle;
+EFI_STATUS pefile_locate_sections(EFI_FILE_HANDLE handle,
+                                  CHAR8 **sections, UINTN n_sections,
+                                  UINTN *addrs, UINTN *offsets, UINTN *sizes) {
         struct DosFileHeader dos;
         uint8_t magic[4];
         struct PeFileHeader pe;
         UINTN len;
         UINTN i;
-        EFI_STATUS err;
-
-        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, path, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
-                return err;
+        EFI_STATUS r;
 
         /* MS-DOS stub */
         len = sizeof(dos);
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, &dos);
-        if (EFI_ERROR(err))
-                goto out;
-        if (len != sizeof(dos)) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+        r = uefi_call_wrapper(handle->Read, 3, handle, &len, &dos);
+        if (EFI_ERROR(r))
+                return r;
 
-        if (CompareMem(dos.Magic, "MZ", 2) != 0) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+        if (len != sizeof(dos))
+                return EFI_INVALID_PARAMETER;
 
-        err = uefi_call_wrapper(handle->SetPosition, 2, handle, dos.ExeHeader);
-        if (EFI_ERROR(err))
-                goto out;
+        if (CompareMem(dos.Magic, "MZ", 2) != 0)
+                return EFI_INVALID_PARAMETER;
+
+        r = uefi_call_wrapper(handle->SetPosition, 2, handle, dos.ExeHeader);
+        if (EFI_ERROR(r))
+                return r;
 
         /* PE header */
         len = sizeof(magic);
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, &magic);
-        if (EFI_ERROR(err))
-                goto out;
-        if (len != sizeof(magic)) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+        r = uefi_call_wrapper(handle->Read, 3, handle, &len, &magic);
+        if (EFI_ERROR(r))
+                return r;
 
-        if (CompareMem(magic, "PE\0\0", 2) != 0) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+        if (len != sizeof(magic))
+                return EFI_INVALID_PARAMETER;
+
+        if (CompareMem(magic, "PE\0\0", 2) != 0)
+                return EFI_INVALID_PARAMETER;
 
         len = sizeof(pe);
-        err = uefi_call_wrapper(handle->Read, 3, handle, &len, &pe);
-        if (EFI_ERROR(err))
-                goto out;
-        if (len != sizeof(pe)) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+        r = uefi_call_wrapper(handle->Read, 3, handle, &len, &pe);
+        if (EFI_ERROR(r))
+                return r;
+
+        if (len != sizeof(pe))
+                return EFI_INVALID_PARAMETER;
 
         /* PE32+ Subsystem type */
         if (pe.Machine != PE_HEADER_MACHINE_X64 &&
-            pe.Machine != PE_HEADER_MACHINE_I386) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+            pe.Machine != PE_HEADER_MACHINE_I386)
+                return EFI_INVALID_PARAMETER;
 
-        if (pe.NumberOfSections > 96) {
-                err = EFI_LOAD_ERROR;
-                goto out;
-        }
+        if (pe.NumberOfSections > 96)
+                return EFI_INVALID_PARAMETER;
 
         /* the sections start directly after the headers */
-        err = uefi_call_wrapper(handle->SetPosition, 2, handle, dos.ExeHeader + sizeof(magic) + sizeof(pe) + pe.SizeOfOptionalHeader);
-        if (EFI_ERROR(err))
-                goto out;
+        r = uefi_call_wrapper(handle->SetPosition, 2, handle, dos.ExeHeader + sizeof(magic) + sizeof(pe) + pe.SizeOfOptionalHeader);
+        if (EFI_ERROR(r))
+                return r;
 
         for (i = 0; i < pe.NumberOfSections; i++) {
                 struct PeSectionHeader sect;
                 UINTN n;
 
                 len = sizeof(sect);
-                err = uefi_call_wrapper(handle->Read, 3, handle, &len, &sect);
-                if (EFI_ERROR(err))
-                        goto out;
-                if (len != sizeof(sect)) {
-                        err = EFI_LOAD_ERROR;
-                        goto out;
-                }
+                r = uefi_call_wrapper(handle->Read, 3, handle, &len, &sect);
+                if (EFI_ERROR(r))
+                        return r;
+
+                if (len != sizeof(sect))
+                        return EFI_INVALID_PARAMETER;
+
                 for (n = 0; n < n_sections; n++) {
                         if (CompareMem(sect.Name, sections[n], strlena(sections[n])) != 0)
                                 continue;
@@ -168,7 +152,5 @@ EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path,
                 }
         }
 
-out:
-        uefi_call_wrapper(handle->Close, 1, handle);
-        return err;
+        return 0;
 }

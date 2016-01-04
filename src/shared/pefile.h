@@ -16,5 +16,6 @@
   along with bus1; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-EFI_STATUS pefile_locate_sections(EFI_FILE *dir, CHAR16 *path,
-                                  CHAR8 **sections, UINTN n_sections, UINTN *addrs, UINTN *offsets, UINTN *sizes);
+EFI_STATUS pefile_locate_sections(EFI_FILE_HANDLE handle,
+                                  CHAR8 **sections, UINTN n_sections,
+                                  UINTN *addrs, UINTN *offsets, UINTN *sizes);
