@@ -25,7 +25,7 @@ static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size) {
         CHAR8 *buf;
         UINTN l;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         if (!vendor)
                 vendor = &global_guid;
@@ -35,14 +35,14 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINT
         if (!buf)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(RT->GetVariable, 5, name, (EFI_GUID *)vendor, NULL, &l, buf);
-        if (!EFI_ERROR(err)) {
+        r = uefi_call_wrapper(RT->GetVariable, 5, name, (EFI_GUID *)vendor, NULL, &l, buf);
+        if (!EFI_ERROR(r)) {
                 *buffer = buf;
                 if (size)
                         *size = l;
         } else
                 FreePool(buf);
-        return err;
+        return r;
 
 }
 
@@ -106,12 +106,12 @@ INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHA
         EFI_FILE_HANDLE handle;
         CHAR16 *buf;
         UINTN buflen;
-        EFI_STATUS err;
         UINTN len;
+        EFI_STATUS r;
 
-        err = uefi_call_wrapper(dir->Open, 5, dir, &handle, name, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
-                return err;
+        r = uefi_call_wrapper(dir->Open, 5, dir, &handle, name, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(r))
+                return r;
 
         if (size == 0) {
                 EFI_FILE_INFO *info;
@@ -123,19 +123,19 @@ INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHA
                 buflen = size ;
 
         if (off > 0) {
-                err = uefi_call_wrapper(handle->SetPosition, 2, handle, off);
-                if (EFI_ERROR(err))
-                        return err;
+                r = uefi_call_wrapper(handle->SetPosition, 2, handle, off);
+                if (EFI_ERROR(r))
+                        return r;
         }
 
         buf = AllocatePool(buflen + sizeof(CHAR16));
-        err = uefi_call_wrapper(handle->Read, 3, handle, &buflen, buf);
-        if (!EFI_ERROR(err)) {
+        r = uefi_call_wrapper(handle->Read, 3, handle, &buflen, buf);
+        if (!EFI_ERROR(r)) {
                 buf[buflen / sizeof(CHAR16)] = '\0';
                 *str = buf;
                 len = buflen / sizeof(CHAR16);
         } else {
-                len = err;
+                len = r;
                 FreePool(buf);
         }
 

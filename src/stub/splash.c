@@ -264,7 +264,7 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         VOID *blt = NULL;
         UINTN x_pos = 0;
         UINTN y_pos = 0;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         if (!background) {
                 if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {
@@ -275,13 +275,13 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
                 background = &pixel;
         }
 
-        err = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
-        if (EFI_ERROR(err))
-                return err;
+        r = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
+        if (EFI_ERROR(r))
+                return r;
 
-        err = bmp_parse_header(content, len, &dib, &map, &pixmap);
-        if (EFI_ERROR(err))
-                goto err;
+        r = bmp_parse_header(content, len, &dib, &map, &pixmap);
+        if (EFI_ERROR(r))
+                goto fail;
 
         if(dib->x < GraphicsOutput->Mode->Info->HorizontalResolution)
                 x_pos = (GraphicsOutput->Mode->Info->HorizontalResolution - dib->x) / 2;
@@ -300,24 +300,24 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         if (!blt)
                 return EFI_OUT_OF_RESOURCES;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
+        r = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
                                 blt, EfiBltVideoToBltBuffer, x_pos, y_pos, 0, 0,
                                 dib->x, dib->y, 0);
-        if (EFI_ERROR(err))
-                goto err;
+        if (EFI_ERROR(r))
+                goto fail;
 
-        err = bmp_to_blt(blt, dib, map, pixmap);
-        if (EFI_ERROR(err))
-                goto err;
+        r = bmp_to_blt(blt, dib, map, pixmap);
+        if (EFI_ERROR(r))
+                goto fail;
 
-        err = graphics_mode(TRUE);
-        if (EFI_ERROR(err))
-                goto err;
+        r = graphics_mode(TRUE);
+        if (EFI_ERROR(r))
+                goto fail;
 
-        err = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
+        r = uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
                                 blt, EfiBltBufferToVideo, 0, 0, x_pos, y_pos,
                                 dib->x, dib->y, 0);
-err:
+fail:
         FreePool(blt);
-        return err;
+        return r;
 }

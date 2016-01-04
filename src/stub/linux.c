@@ -91,7 +91,7 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
         struct SetupHeader *image_setup;
         struct SetupHeader *boot_setup;
         EFI_PHYSICAL_ADDRESS addr;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         image_setup = (struct SetupHeader *)(linux_addr);
         if (image_setup->signature != 0xAA55 || image_setup->header != SETUP_MAGIC)
@@ -101,10 +101,10 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
                 return EFI_LOAD_ERROR;
 
         addr = 0x3fffffff;
-        err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
+        r = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
                                 EFI_SIZE_TO_PAGES(0x4000), &addr);
-        if (EFI_ERROR(err))
-                return err;
+        if (EFI_ERROR(r))
+                return r;
         boot_setup = (struct SetupHeader *)(UINTN)addr;
         ZeroMem(boot_setup, 0x4000);
         CopyMem(boot_setup, image_setup, sizeof(struct SetupHeader));
@@ -114,10 +114,10 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
 
         if (cmdline) {
                 addr = 0xA0000;
-                err = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
+                r = uefi_call_wrapper(BS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData,
                                         EFI_SIZE_TO_PAGES(cmdline_len + 1), &addr);
-                if (EFI_ERROR(err))
-                        return err;
+                if (EFI_ERROR(r))
+                        return r;
                 CopyMem((VOID *)(UINTN)addr, cmdline, cmdline_len);
                 ((CHAR8 *)addr)[cmdline_len] = 0;
                 boot_setup->cmd_line_ptr = (UINT32)addr;

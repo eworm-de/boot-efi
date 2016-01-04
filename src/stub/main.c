@@ -58,14 +58,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN i;
         CHAR8 *cmdline;
         UINTN cmdline_len;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         InitializeLib(image, sys_table);
 
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
+        r = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err))
-                return err;
+        if (EFI_ERROR(r))
+                return r;
 
         root_dir = LibOpenRoot(loaded_image->DeviceHandle);
         if (!root_dir)
@@ -81,24 +81,24 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!loaded_image_path)
                 return EFI_LOAD_ERROR;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &f, loaded_image_path, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
-                return err;
+        r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &f, loaded_image_path, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(r))
+                return r;
 
-        err = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
-        if (EFI_ERROR(err)) {
+        r = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+        if (EFI_ERROR(r)) {
                 uefi_call_wrapper(f->Close, 1, f);
-                Print(L"Unable to locate embedded PE/COFF sections: %r\n", err);
+                Print(L"Unable to locate embedded PE/COFF sections: %r\n", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
+                return r;
         }
 
-        err = filename_validate_release(f, loaded_image->ImageBase + addrs[SECTION_RELEASE], szs[SECTION_RELEASE] / sizeof(CHAR16));
-        if (EFI_ERROR(err)) {
+        r = filename_validate_release(f, loaded_image->ImageBase + addrs[SECTION_RELEASE], szs[SECTION_RELEASE] / sizeof(CHAR16));
+        if (EFI_ERROR(r)) {
                 uefi_call_wrapper(f->Close, 1, f);
-                Print(L"Filename and release do not match: %r.\n", err);
+                Print(L"Filename and release do not match: %r.\n", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
+                return r;
         }
 
         uefi_call_wrapper(f->Close, 1, f);
@@ -117,9 +117,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 options_len = szs[SECTION_OPTIONS] / sizeof(CHAR16);
         }
 
-        err = disk_get_disk_uuid(loaded_image->DeviceHandle, uuid);
-        if (EFI_ERROR(err))
-                return err;
+        r = disk_get_disk_uuid(loaded_image->DeviceHandle, uuid);
+        if (EFI_ERROR(r))
+                return r;
 
         cmdline_len = 5 + 36;
         cmdline = AllocatePool(cmdline_len + 1 + options_len);
@@ -141,12 +141,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (szs[SECTION_SPLASH] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH], NULL);
 
-        err = linux_exec(image, cmdline, cmdline_len,
+        r = linux_exec(image, cmdline, cmdline_len,
                          (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],
                          (UINTN)loaded_image->ImageBase + addrs[SECTION_INITRD], szs[SECTION_INITRD]);
 
         graphics_mode(FALSE);
-        Print(L"Execution of embedded linux image failed: %r\n", err);
+        Print(L"Execution of embedded linux image failed: %r\n", r);
         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-        return err;
+        return r;
 }

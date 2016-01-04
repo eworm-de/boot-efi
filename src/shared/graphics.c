@@ -62,27 +62,27 @@ EFI_STATUS graphics_mode(BOOLEAN on) {
         EFI_CONSOLE_CONTROL_SCREEN_MODE current;
         BOOLEAN uga_exists;
         BOOLEAN stdin_locked;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
-        err = LibLocateProtocol(&ConsoleControlProtocolGuid, (VOID **)&ConsoleControl);
-        if (EFI_ERROR(err))
+        r = LibLocateProtocol(&ConsoleControlProtocolGuid, (VOID **)&ConsoleControl);
+        if (EFI_ERROR(r))
                 /* console control protocol is nonstandard and might not exist. */
-                return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
+                return r == EFI_NOT_FOUND ? EFI_SUCCESS : r;
 
         /* check current mode */
-        err = uefi_call_wrapper(ConsoleControl->GetMode, 4, ConsoleControl, &current, &uga_exists, &stdin_locked);
-        if (EFI_ERROR(err))
-                return err;
+        r = uefi_call_wrapper(ConsoleControl->GetMode, 4, ConsoleControl, &current, &uga_exists, &stdin_locked);
+        if (EFI_ERROR(r))
+                return r;
 
         /* do not touch the mode */
         new  = on ? EfiConsoleControlScreenGraphics : EfiConsoleControlScreenText;
         if (new == current)
                 return EFI_SUCCESS;
 
-        err = uefi_call_wrapper(ConsoleControl->SetMode, 2, ConsoleControl, new);
+        r = uefi_call_wrapper(ConsoleControl->SetMode, 2, ConsoleControl, new);
 
         /* some firmware enables the cursor when switching modes */
         uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
 
-        return err;
+        return r;
 }

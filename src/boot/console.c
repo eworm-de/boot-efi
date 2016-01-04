@@ -84,11 +84,11 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         static BOOLEAN checked;
         UINTN index;
         EFI_INPUT_KEY k;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         if (!checked) {
-                err = LibLocateProtocol(&EfiSimpleTextInputExProtocolGuid, (VOID **)&TextInputEx);
-                if (EFI_ERROR(err))
+                r = LibLocateProtocol(&EfiSimpleTextInputExProtocolGuid, (VOID **)&TextInputEx);
+                if (EFI_ERROR(r))
                         TextInputEx = NULL;
 
                 checked = TRUE;
@@ -106,8 +106,8 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
                 EFI_KEY_DATA keydata;
                 UINT64 keypress;
 
-                err = uefi_call_wrapper(TextInputEx->ReadKeyStrokeEx, 2, TextInputEx, &keydata);
-                if (!EFI_ERROR(err)) {
+                r = uefi_call_wrapper(TextInputEx->ReadKeyStrokeEx, 2, TextInputEx, &keydata);
+                if (!EFI_ERROR(r)) {
                         UINT32 shift = 0;
 
                         /* do not distinguish between left and right keys */
@@ -132,9 +132,9 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
          * This is also called in case ReadKeyStrokeEx did not return a key, because
          * some broken firmwares offer SimpleTextInputExProtocol, but never acually
          * handle any key. */
-        err  = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
-        if (EFI_ERROR(err))
-                return err;
+        r  = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
+        if (EFI_ERROR(r))
+                return r;
 
         *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
         return 0;

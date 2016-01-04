@@ -88,9 +88,9 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
         enter = FALSE;
         exit = FALSE;
         while (!exit) {
-                EFI_STATUS err;
                 UINT64 key;
                 UINTN i;
+                EFI_STATUS r;
 
                 i = len - first;
                 if (i >= x_max-1)
@@ -106,8 +106,8 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
                 uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, print);
                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, cursor, y_pos);
 
-                err = console_key_read(&key, TRUE);
-                if (EFI_ERROR(err))
+                r = console_key_read(&key, TRUE);
+                if (EFI_ERROR(r))
                         continue;
 
                 switch (key) {
@@ -414,7 +414,6 @@ static VOID print_status(Config *config) {
 }
 
 static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
-        EFI_STATUS err;
         UINTN visible_max;
         UINTN idx_highlight;
         UINTN idx_highlight_prev;
@@ -434,6 +433,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
         INT16 idx;
         BOOLEAN exit = FALSE;
         BOOLEAN run = TRUE;
+        EFI_STATUS r;
 
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
@@ -444,8 +444,8 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L" ");
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 
-        err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
-        if (EFI_ERROR(err)) {
+        r = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
+        if (EFI_ERROR(r)) {
                 x_max = 80;
                 y_max = 25;
         }
@@ -553,7 +553,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
                         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, clearline+1 + x + len);
                 }
 
-                err = console_key_read(&key, TRUE);
+                r = console_key_read(&key, TRUE);
 
                 /* clear status after keystroke */
                 if (status) {
@@ -821,19 +821,19 @@ static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_
         EFI_FILE_HANDLE handle;
         EFI_FILE_INFO *info;
         UINTN size = 0;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         /* check existence */
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, file, EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
-                return err;
+        r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, file, EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(r))
+                return r;
 
         info = LibFileInfo(handle);
         size = info->FileSize;
         FreePool(info);
-        err = uefi_call_wrapper(handle->Close, 1, handle);
-        if (EFI_ERROR(err))
-                return err;
+        r = uefi_call_wrapper(handle->Close, 1, handle);
+        if (EFI_ERROR(r))
+                return r;
 
         if (size == 0)
                 return FALSE;
@@ -851,12 +851,12 @@ static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_
 }
 
 static VOID config_entry_add_osx(Config *config) {
-        EFI_STATUS err;
+        EFI_STATUS r;
         UINTN handle_count = 0;
         EFI_HANDLE *handles = NULL;
 
-        err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
-        if (!EFI_ERROR(err)) {
+        r = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
+        if (!EFI_ERROR(r)) {
                 UINTN i;
 
                 for (i = 0; i < handle_count; i++) {
@@ -880,11 +880,11 @@ static VOID config_entry_add_osx(Config *config) {
 static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
         EFI_FILE_HANDLE bus1_dir;
         EFI_FILE_HANDLE f;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\bus1", EFI_FILE_MODE_READ, 0ULL);
-        if (EFI_ERROR(err))
-                return err;
+        r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\bus1", EFI_FILE_MODE_READ, 0ULL);
+        if (EFI_ERROR(r))
+                return r;
 
         for (;;) {
                 CHAR16 buf[256];
@@ -907,8 +907,8 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 INTN n;
 
                 bufsize = sizeof(buf);
-                err = uefi_call_wrapper(bus1_dir->Read, 3, bus1_dir, &bufsize, buf);
-                if (bufsize == 0 || EFI_ERROR(err))
+                r = uefi_call_wrapper(bus1_dir->Read, 3, bus1_dir, &bufsize, buf);
+                if (bufsize == 0 || EFI_ERROR(r))
                         break;
 
                 info = (EFI_FILE_INFO *)buf;
@@ -918,12 +918,12 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         continue;
 
                 /* look for .release and .options sections in the .efi binary */
-                err = uefi_call_wrapper(bus1_dir->Open, 5, bus1_dir, &f, info->FileName, EFI_FILE_MODE_READ, 0ULL);
-                if (EFI_ERROR(err))
+                r = uefi_call_wrapper(bus1_dir->Open, 5, bus1_dir, &f, info->FileName, EFI_FILE_MODE_READ, 0ULL);
+                if (EFI_ERROR(r))
                         continue;
 
-                err = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
-                if (EFI_ERROR(err)) {
+                r = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
+                if (EFI_ERROR(r)) {
                         uefi_call_wrapper(f->Close, 1, f);
                         continue;
                 }
@@ -962,7 +962,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
 static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry) {
         _c_cleanup_(CFreePoolP) EFI_DEVICE_PATH *path = NULL;
         EFI_HANDLE image;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         path = FileDevicePath(entry->device, entry->file);
         if (!path) {
@@ -971,20 +971,20 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry)
                 return EFI_INVALID_PARAMETER;
         }
 
-        err = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
-        if (EFI_ERROR(err)) {
-                Print(L"Error loading %s: %r", entry->file, err);
+        r = uefi_call_wrapper(BS->LoadImage, 6, FALSE, parent_image, path, NULL, 0, &image);
+        if (EFI_ERROR(r)) {
+                Print(L"Error loading %s: %r", entry->file, r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
+                return r;
         }
 
         if (entry->options_edit) {
                 EFI_LOADED_IMAGE *loaded_image;
 
-                err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
+                r = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&loaded_image,
                                         parent_image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-                if (EFI_ERROR(err)) {
-                        Print(L"Error getting LoadedImageProtocol handle: %r", err);
+                if (EFI_ERROR(r)) {
+                        Print(L"Error getting LoadedImageProtocol handle: %r", r);
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         goto out_unload;
                 }
@@ -993,34 +993,34 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const ConfigEntry *entry)
                 loaded_image->LoadOptionsSize = (StrLen(loaded_image->LoadOptions)+1) * sizeof(CHAR16);
         }
 
-        err = uefi_call_wrapper(BS->StartImage, 3, image, NULL, NULL);
+        r = uefi_call_wrapper(BS->StartImage, 3, image, NULL, NULL);
 
 out_unload:
         uefi_call_wrapper(BS->UnloadImage, 1, image);
-        return err;
+        return r;
 }
 
 static EFI_STATUS reboot_into_firmware(VOID) {
         CHAR8 *b;
         UINTN size;
         UINT64 osind;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         osind = EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
-        err = efivar_get(NULL, L"OsIndications", &b, &size);
-        if (!EFI_ERROR(err))
+        r = efivar_get(NULL, L"OsIndications", &b, &size);
+        if (!EFI_ERROR(r))
                 osind |= (UINT64)*b;
         FreePool(b);
 
-        err = efivar_set(NULL, L"OsIndications", (CHAR8 *)&osind, sizeof(UINT64), TRUE);
-        if (EFI_ERROR(err))
-                return err;
+        r = efivar_set(NULL, L"OsIndications", (CHAR8 *)&osind, sizeof(UINT64), TRUE);
+        if (EFI_ERROR(r))
+                return r;
 
-        err = uefi_call_wrapper(RT->ResetSystem, 4, EfiResetCold, EFI_SUCCESS, 0, NULL);
-        Print(L"Error calling ResetSystem: %r", err);
+        r = uefi_call_wrapper(RT->ResetSystem, 4, EfiResetCold, EFI_SUCCESS, 0, NULL);
+        Print(L"Error calling ResetSystem: %r", r);
         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-        return err;
+        return r;
 }
 
 static VOID config_free(Config *config) {
@@ -1038,20 +1038,20 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         Config config = {};
         BOOLEAN menu = FALSE;
         UINT64 key;
-        EFI_STATUS err;
+        EFI_STATUS r;
 
         InitializeLib(image, sys_table);
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&config.loaded_image,
+        r = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&config.loaded_image,
                                 image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (EFI_ERROR(err)) {
-                Print(L"Error getting a LoadedImageProtocol handle: %r ", err);
+        if (EFI_ERROR(r)) {
+                Print(L"Error getting a LoadedImageProtocol handle: %r ", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
-                return err;
+                return r;
         }
 
         root_dir = LibOpenRoot(config.loaded_image->DeviceHandle);
         if (!root_dir) {
-                Print(L"Unable to open root directory: %r ", err);
+                Print(L"Unable to open root directory: %r ", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return EFI_LOAD_ERROR;
         }
@@ -1085,8 +1085,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         config_default_entry_select(&config);
 
-        err = console_key_read(&key, FALSE);
-        if (!EFI_ERROR(err)) {
+        r = console_key_read(&key, FALSE);
+        if (!EFI_ERROR(r)) {
                 INT16 idx;
 
                 /* find matching key in config entries */
@@ -1114,20 +1114,20 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 }
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
-                err = image_start(image, entry);
-                if (EFI_ERROR(err)) {
+                r = image_start(image, entry);
+                if (EFI_ERROR(r)) {
                         graphics_mode(FALSE);
-                        Print(L"\nFailed to execute %s (%s): %r\n", entry->release, entry->file, err);
+                        Print(L"\nFailed to execute %s (%s): %r\n", entry->release, entry->file, r);
                         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                         goto out;
                 }
 
                 menu = TRUE;
         }
-        err = EFI_SUCCESS;
+        r = EFI_SUCCESS;
 out:
         config_free(&config);
         uefi_call_wrapper(root_dir->Close, 1, root_dir);
         uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
-        return err;
+        return r;
 }
