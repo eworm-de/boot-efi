@@ -35,4 +35,5 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINT
 
 INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n);
 
+EFI_STATUS filename_validate_release(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN n);
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str);

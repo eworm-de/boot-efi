@@ -77,6 +77,31 @@ INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n) {
         return n > 0 ? *s1 - *s2 : 0;
 }
 
+EFI_STATUS filename_validate_release(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN n) {
+        EFI_FILE_INFO *info;
+        UINTN name_base_len;
+
+        info = LibFileInfo(f);
+        if (!info)
+                return EFI_LOAD_ERROR;
+
+        name_base_len = StrLen(info->FileName);
+        if (name_base_len < 5)
+                return EFI_INVALID_PARAMETER;
+
+        name_base_len -= 4;
+
+        /* require .efi extension */
+        if (StriCmp(info->FileName + name_base_len, L".efi") != 0)
+                return EFI_INVALID_PARAMETER;
+
+        /* require the file name to match the release name */
+        if (StrniCmp(info->FileName, release, n) != 0)
+                return EFI_INVALID_PARAMETER;
+
+        return EFI_SUCCESS;
+}
+
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str) {
         EFI_FILE_HANDLE handle;
         CHAR16 *buf;

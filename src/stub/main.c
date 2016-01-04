@@ -30,8 +30,8 @@ static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
         EFI_FILE *root_dir;
-        CHAR16 *loaded_image_path;
-        EFI_FILE_HANDLE handle;
+        _c_cleanup_(CFreePoolP) CHAR16 *loaded_image_path;
+        EFI_FILE_HANDLE f;
         CHAR16 uuid[37] = {};
         CHAR8 *b;
         UINTN size;
@@ -40,12 +40,14 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 SECTION_INITRD,
                 SECTION_LINUX,
                 SECTION_OPTIONS,
+                SECTION_RELEASE,
                 SECTION_SPLASH,
         };
         CHAR8 *sections[] = {
                 [SECTION_INITRD] = (UINT8 *)".initrd",
                 [SECTION_LINUX] = (UINT8 *)".linux",
                 [SECTION_OPTIONS] = (UINT8 *)".options",
+                [SECTION_RELEASE] = (UINT8 *)".release",
                 [SECTION_SPLASH] = (UINT8 *)".splash",
         };
         UINTN addrs[C_ARRAY_SIZE(sections)] = {};
@@ -79,18 +81,28 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (!loaded_image_path)
                 return EFI_LOAD_ERROR;
 
-        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, loaded_image_path, EFI_FILE_MODE_READ, 0ULL);
-        FreePool(loaded_image_path);
+        err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &f, loaded_image_path, EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(err))
                 return err;
 
-        err = pefile_locate_sections(handle, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
-        uefi_call_wrapper(handle->Close, 1, handle);
+        err = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
         if (EFI_ERROR(err)) {
+                uefi_call_wrapper(f->Close, 1, f);
                 Print(L"Unable to locate embedded PE/COFF sections: %r\n", err);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return err;
         }
+
+        err = filename_validate_release(f, loaded_image->ImageBase + addrs[SECTION_RELEASE], szs[SECTION_RELEASE] / sizeof(CHAR16));
+        if (EFI_ERROR(err)) {
+                uefi_call_wrapper(f->Close, 1, f);
+                Print(L"Filename and release do not match: %r.\n", err);
+                uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
+                return err;
+        }
+
+        uefi_call_wrapper(f->Close, 1, f);
+
 
         if (secure && loaded_image->LoadOptionsSize > 0) {
                 Print(L"Secure Boot active, ignoring custom kernel command line.\n");
