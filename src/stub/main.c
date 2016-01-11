@@ -58,6 +58,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN i;
         CHAR8 *cmdline;
         UINTN cmdline_len;
+        CHAR8 *s;
         EFI_STATUS r;
 
         InitializeLib(image, sys_table);
@@ -121,29 +122,56 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (EFI_ERROR(r))
                 return r;
 
-        cmdline_len = 5 + 36;
-        cmdline = AllocatePool(cmdline_len + 1 + options_len);
-        CopyMem(cmdline, "disk=", 5);
-        for (i = 0; i < cmdline_len - 5 ; i++) {
-                /* we expect the UUID to be lowercase */
-                if (uuid[i] >= 'A' && uuid[i] <= 'Z')
-                        uuid[i] |= 0x20;
 
-                cmdline[5 + i] = uuid[i];
+        cmdline_len = 5 + 36;                                   /* disk=<UUID> */
+        cmdline_len += 1 + 7 + StrLen(loaded_image_path);       /* loader=<file path> */
+        if (options_len > 0)
+                cmdline_len += 1 + options_len;
+        cmdline = AllocatePool(cmdline_len);
+
+        s = cmdline;
+        CopyMem(s, "disk=", 5);
+        s += 5;
+        for (i = 0; i < 36 ; i++) {
+                *s = uuid[i];
+
+                /* We expect the UUID to be lowercase. */
+                if (*s >= 'A' && *s <= 'Z')
+                        *s |= 0x20;
+
+                s++;
+        }
+
+        *s = ' ';
+        s++;
+        CopyMem(s, "loader=", 7);
+        s += 7;
+        for (i = 0; i < StrLen(loaded_image_path) ; i++) {
+                *s = loaded_image_path[i];
+
+                /* We expect slashes. */
+                if (*s == '\\')
+                        *s = '/';
+
+                s++;
         }
 
         if (options_len) {
-                cmdline[cmdline_len++] = ' ';
-                for (i = 0; i < options_len; i++)
-                        cmdline[cmdline_len++] = options[i];
+                *s = ' ';
+                s++;
+                for (i = 0; i < options_len; i++) {
+                        *s = options[i];
+
+                        s++;
+                }
         }
 
         if (szs[SECTION_SPLASH] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH], NULL);
 
         r = linux_exec(image, cmdline, cmdline_len,
-                         (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],
-                         (UINTN)loaded_image->ImageBase + addrs[SECTION_INITRD], szs[SECTION_INITRD]);
+                       (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],
+                       (UINTN)loaded_image->ImageBase + addrs[SECTION_INITRD], szs[SECTION_INITRD]);
 
         graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", r);
