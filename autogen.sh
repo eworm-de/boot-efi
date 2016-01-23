@@ -15,10 +15,10 @@ fi
 cd $oldpwd
 
 if [[ "$1" == "b" ]]; then
-        $topdir/configure --enable-debug $args
+        $topdir/configure $args
         make clean
 elif [[ "$1" == "c" ]]; then
-        $topdir/configure --enable-debug $args
+        $topdir/configure $args
         make clean
 elif [[ "$1" == "l" ]]; then
         $topdir/configure CC=clang $args

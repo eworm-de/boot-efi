@@ -59,8 +59,9 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN si
         return uefi_call_wrapper(RT->SetVariable, 5, name, (EFI_GUID *)vendor, flags, size, buf);
 }
 
+/* strncasecmp() */
 INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n) {
-        while (*s1 && n != 0) {
+        while (*s1 && n > 0) {
                 if (*s1 >= 'A' && *s1 <= 'Z') {
                         if ((*s1 | 0x20) != (*s2 | 0x20))
                                 break;
@@ -77,27 +78,44 @@ INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n) {
         return n > 0 ? *s1 - *s2 : 0;
 }
 
-EFI_STATUS filename_validate_release(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN n) {
+/* Validate file name to match the embedded release string */
+EFI_STATUS loader_filename_parse(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN release_len, INTN *boot_countp) {
         EFI_FILE_INFO *info;
-        UINTN name_base_len;
+        UINTN name_len;
+        INTN boot_count = -1;
 
         info = LibFileInfo(f);
         if (!info)
                 return EFI_LOAD_ERROR;
 
-        name_base_len = StrLen(info->FileName);
-        if (name_base_len < 5)
+        name_len = StrLen(info->FileName);
+        if (name_len < release_len + 4)
                 return EFI_INVALID_PARAMETER;
 
-        name_base_len -= 4;
-
-        /* require .efi extension */
-        if (StriCmp(info->FileName + name_base_len, L".efi") != 0)
+        /* Require .efi extension. */
+        if (StriCmp(info->FileName + name_len - 4, L".efi") != 0)
                 return EFI_INVALID_PARAMETER;
 
-        /* require the file name to match the release name */
-        if (StrniCmp(info->FileName, release, n) != 0)
+        /* Require the file name to start with the release name. */
+        if (StrniCmp(info->FileName, release, release_len) != 0)
                 return EFI_INVALID_PARAMETER;
+
+        /* Accept optional boot count extension. */
+        if (name_len > release_len + 4) {
+                CHAR16 c;
+
+                if (StrniCmp(info->FileName + release_len, L"-boot", 5) != 0)
+                        return EFI_INVALID_PARAMETER;
+
+                c = info->FileName[release_len + 5];
+                if (c < '0' || c > '9')
+                        return EFI_INVALID_PARAMETER;
+
+                boot_count = c - '0';
+        }
+
+        if (boot_countp)
+                *boot_countp = boot_count;
 
         return EFI_SUCCESS;
 }

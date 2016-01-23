@@ -30,10 +30,11 @@ static inline VOID CFreePoolP(VOID *p) {
 static inline const CHAR16 *yes_no(BOOLEAN b) {
         return b ? L"yes" : L"no";
 }
+
 EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent);
 EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size);
 
 INTN StrniCmp(const CHAR16 *s1, const CHAR16 *s2, UINTN n);
 
-EFI_STATUS filename_validate_release(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN n);
+EFI_STATUS loader_filename_parse(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN release_len, INTN *boot_countp);
 INTN file_read_str(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, CHAR16 **str);

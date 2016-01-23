@@ -37,6 +37,7 @@ typedef struct {
         CHAR16 key;
         EFI_HANDLE *device;
         EFI_STATUS (*call)(VOID);
+        INTN boot_count;
         UINT64 flags;
 } ConfigEntry;
 
@@ -401,6 +402,8 @@ static VOID print_status(Config *config) {
                         Print(L"device handle           '%s'\n", s);
                         FreePool(s);
                 }
+                if (entry->boot_count > 0)
+                        Print(L"boot count:             %d\n", entry->boot_count);
                 Print(L"editor:                 %s\n", yes_no(entry->flags & ENTRY_EDITOR));
                 Print(L"auto-select             %s\n", yes_no(entry->flags & ENTRY_AUTOSELECT));
                 if (entry->call)
@@ -816,7 +819,8 @@ static BOOLEAN config_entry_add_call(Config *config, CHAR16 *release, EFI_STATUS
 }
 
 static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir,
-                                        CHAR16 *release, CHAR16 key, CHAR16 *file, CHAR16 *options, UINT64 flags) {
+                                        CHAR16 *release, CHAR16 key, CHAR16 *file, CHAR16 *options,
+                                        INTN boot_count, UINT64 flags) {
         ConfigEntry *entry;
         EFI_FILE_HANDLE handle;
         EFI_FILE_INFO *info;
@@ -843,6 +847,7 @@ static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_
         entry->key = key;
         entry->file = StrDuplicate(file);
         entry->options = StrDuplicate(options);
+        entry->boot_count = boot_count;
         entry->flags = flags;
         entry->device = device;
         config_add_entry(config, entry);
@@ -867,7 +872,8 @@ static VOID config_entry_add_osx(Config *config) {
                         if (!root)
                                 continue;
                         found = config_entry_add_file(config, handles[i], root, L"osx", 'a',
-                                                      L"\\System\\Library\\CoreServices\\boot.efi", NULL, 0);
+                                                      L"\\System\\Library\\CoreServices\\boot.efi", NULL,
+                                                      -1, 0);
                         uefi_call_wrapper(root->Close, 1, root);
                         if (found)
                                 break;
@@ -904,6 +910,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 _c_cleanup_(CFreePoolP) CHAR16 *release = NULL;
                 _c_cleanup_(CFreePoolP) CHAR16 *options = NULL;
                 _c_cleanup_(CFreePoolP) CHAR16 *file = NULL;
+                INTN boot_count;
                 INTN n;
 
                 bufsize = sizeof(buf);
@@ -939,7 +946,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         continue;
                 }
 
-                if (filename_validate_release(f, release, n) != EFI_SUCCESS) {
+                if (loader_filename_parse(f, release, n, &boot_count) != EFI_SUCCESS) {
                         uefi_call_wrapper(f->Close, 1, f);
                         continue;
                 }
@@ -951,7 +958,8 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
 
                 file = PoolPrint(L"\\EFI\\bus1\\%s", info->FileName);
                 config_entry_add_file(config, config->loaded_image->DeviceHandle, root_dir,
-                                      release, 'l', file, options, ENTRY_EDITOR|ENTRY_AUTOSELECT);
+                                      release, 'l', file, options,
+                                      boot_count, ENTRY_EDITOR|ENTRY_AUTOSELECT);
         }
 
         uefi_call_wrapper(bus1_dir->Close, 1, bus1_dir);
@@ -1064,9 +1072,11 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* check for some well-known files, add them to the end of the list */
         config_entry_add_file(&config, config.loaded_image->DeviceHandle, root_dir,
-                              L"windows", 'w', L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi", NULL, 0);
+                              L"windows", 'w', L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi", NULL,
+                              -1, 0);
         config_entry_add_file(&config, config.loaded_image->DeviceHandle, root_dir,
-                              L"shell", 's', L"\\shell" EFI_MACHINE_TYPE_NAME ".efi", NULL, 0);
+                              L"shell", 's', L"\\shell" EFI_MACHINE_TYPE_NAME ".efi", NULL,
+                              -1, 0);
         config_entry_add_osx(&config);
 
         if (efivar_get(NULL, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {

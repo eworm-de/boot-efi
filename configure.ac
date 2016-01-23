@@ -16,17 +16,14 @@ AC_CANONICAL_HOST
 AC_SYS_LARGEFILE
 
 AC_PROG_CC
+AC_PROG_CC_C99
+AC_PROG_MKDIR_P
+AC_CHECK_TOOL(OBJCOPY, objcopy)
+AC_CHECK_TOOL(NM, nm)
 
 # do not try to use things like -std=c99 for efi compilation
 EFI_CC=$CC
 AC_SUBST([EFI_CC])
-
-AC_PROG_CC_C99
-AM_PROG_CC_C_O
-AC_PROG_GCC_TRADITIONAL
-
-AC_PROG_MKDIR_P
-AC_CHECK_TOOL(OBJCOPY, objcopy)
 
 # ------------------------------------------------------------------------------
 SET_ARCH(X86_64, x86_64*)

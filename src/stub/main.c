@@ -94,7 +94,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return r;
         }
 
-        r = filename_validate_release(f, loaded_image->ImageBase + addrs[SECTION_RELEASE], szs[SECTION_RELEASE] / sizeof(CHAR16));
+        r = loader_filename_parse(f, loaded_image->ImageBase + addrs[SECTION_RELEASE], szs[SECTION_RELEASE] / sizeof(CHAR16), NULL);
         if (EFI_ERROR(r)) {
                 uefi_call_wrapper(f->Close, 1, f);
                 Print(L"Filename and release do not match: %r.\n", r);
