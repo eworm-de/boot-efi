@@ -402,7 +402,7 @@ static VOID print_status(Config *config) {
                         Print(L"device handle           '%s'\n", s);
                         FreePool(s);
                 }
-                if (entry->boot_count > 0)
+                if (entry->boot_count >= 0)
                         Print(L"boot count:             %d\n", entry->boot_count);
                 Print(L"editor:                 %s\n", yes_no(entry->flags & ENTRY_EDITOR));
                 Print(L"auto-select             %s\n", yes_no(entry->flags & ENTRY_AUTOSELECT));
@@ -787,11 +787,13 @@ static VOID config_sort_entries(Config *config) {
 
                         if (str_verscmp(config->entries[k]->file_path, config->entries[k+1]->file_path) <= 0)
                                 continue;
+
                         entry = config->entries[k];
                         config->entries[k] = config->entries[k+1];
                         config->entries[k+1] = entry;
                         more = TRUE;
                 }
+
                 if (!more)
                         break;
         }
@@ -799,27 +801,41 @@ static VOID config_sort_entries(Config *config) {
 
 static VOID config_default_entry_select(Config *config) {
         UINTN i;
+        INTN idx_default_fallback = -1;
 
         if (config->n_entries == 0)
                 return;
 
-        /* select the last suitable entry */
         i = config->n_entries;
         while (i--) {
                 if (!(config->entries[i]->flags & ENTRY_AUTOSELECT))
                         continue;
+
+                /* Remember the first "-boot0" entry, in case we don't find a better one. */
+                if (config->entries[i]->boot_count == 0) {
+                        if (idx_default_fallback < 0)
+                                idx_default_fallback = i;
+
+                        continue;
+                }
+
                 config->idx_default = i;
                 return;
         }
+
+        if (idx_default_fallback >= 0)
+                config->idx_default = idx_default_fallback;
 }
 
 static BOOLEAN config_entry_add_call(Config *config, CHAR16 *release, EFI_STATUS (*call)(VOID)) {
         ConfigEntry *entry;
 
         entry = AllocateZeroPool(sizeof(ConfigEntry));
+        entry->boot_count = -1;
         entry->release = StrDuplicate(release);
         entry->call = call;
         config_add_entry(config, entry);
+
         return TRUE;
 }
 
