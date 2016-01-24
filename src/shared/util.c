@@ -20,7 +20,7 @@
 
 #include "util.h"
 
-static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
+static const EFI_GUID EfiGlobalVariableGuid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINTN *size) {
         CHAR8 *buf;
@@ -28,7 +28,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, CHAR16 *name, CHAR8 **buffer, UINT
         EFI_STATUS r;
 
         if (!vendor)
-                vendor = &global_guid;
+                vendor = &EfiGlobalVariableGuid;
 
         l = sizeof(CHAR16 *) * EFI_MAXIMUM_VARIABLE_SIZE;
         buf = AllocatePool(l);
@@ -50,7 +50,7 @@ EFI_STATUS efivar_set(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN si
         UINT32 flags;
 
         if (!vendor)
-                vendor = &global_guid;
+                vendor = &EfiGlobalVariableGuid;
 
         flags = EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         if (persistent)
@@ -101,8 +101,11 @@ EFI_STATUS loader_filename_parse(EFI_FILE_HANDLE f, const CHAR16 *release, UINTN
                 return EFI_INVALID_PARAMETER;
 
         /* Accept optional boot count extension. */
-        if (name_len > release_len + 4) {
+        if (name_len != release_len + 4) {
                 CHAR16 c;
+
+                if (name_len != release_len + 6 + 4)
+                        return EFI_INVALID_PARAMETER;
 
                 if (StrniCmp(info->FileName + release_len, L"-boot", 5) != 0)
                         return EFI_INVALID_PARAMETER;
