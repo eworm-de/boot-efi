@@ -417,6 +417,7 @@ static VOID print_status(Config *config) {
 }
 
 static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
+        UINTN watchdog_timeout = 60;
         UINTN visible_max;
         UINTN idx_highlight;
         UINTN idx_highlight_prev;
@@ -438,6 +439,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
         BOOLEAN run = TRUE;
         EFI_STATUS r;
 
+        uefi_call_wrapper(BS->SetWatchdogTimer, 4, watchdog_timeout, 0x10000, 0, NULL);
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
         uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
@@ -557,6 +559,12 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
                 }
 
                 r = console_key_read(&key, TRUE);
+
+                /* Disable watchdog on activity. */
+                if (watchdog_timeout > 0) {
+                        uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
+                        watchdog_timeout = 0;
+                }
 
                 /* clear status after keystroke */
                 if (status) {
@@ -803,9 +811,6 @@ static VOID config_default_entry_select(Config *config) {
                 config->idx_default = i;
                 return;
         }
-
-        /* no entry found */
-        config->idx_default = 0;
 }
 
 static BOOLEAN config_entry_add_call(Config *config, CHAR16 *release, EFI_STATUS (*call)(VOID)) {
@@ -1096,7 +1101,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         CHAR8 *b;
         UINTN size;
         EFI_FILE *root_dir;
-        Config config = {};
+        Config config = {
+                .idx_default = -1,
+        };
         BOOLEAN menu = FALSE;
         UINT64 key;
         EFI_STATUS r;
@@ -1141,7 +1148,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         if (config.n_entries == 0) {
-                Print(L"No binaries found. Exiting.");
+                Print(L"No loader found on the system. Exiting.");
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 goto finish;
         }
@@ -1160,12 +1167,16 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                         menu = TRUE;
         }
 
+        if (config.idx_default == -1) {
+                config.idx_default = 0;
+                menu = TRUE;
+        }
+
         for (;;) {
                 ConfigEntry *entry;
 
                 entry = config.entries[config.idx_default];
                 if (menu) {
-                        uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0x10000, 0, NULL);
                         if (!menu_run(&config, &entry))
                                 break;
 
