@@ -2,6 +2,7 @@ bus1 - UEFI Boot Manager
 
 bootx64.efi: Boot Manager
         - searches EFI binaries in (ESP)/EFI/bus1/*.efi
+        - decrements the loader boot counter before executing the loader
         - executes the latest release version (versionsort)
         - if a key is pressed during bootup, a menu is drawn showing all found
           binaries
