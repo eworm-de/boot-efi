@@ -1,7 +1,7 @@
 bus1 - UEFI Boot Manager
 
 bootx64.efi: Boot Manager
-        - searches EFI binaries in (ESP)/EFI/bus1/*.efi
+        - searches EFI binaries in (ESP)/EFI/org.bus1/*.efi
         - decrements the loader boot counter before executing the loader
         - executes the latest release version (versionsort)
         - if a key is pressed during bootup, a menu is drawn showing all found
@@ -15,17 +15,17 @@ stubx64.efi: Boot Code Stub
         - shows the splash screen from the embedded PE section
 
 DETAILS:
-        https://github.com/bus1/boot-efi
+        https://github.com/org.bus1/boot-efi
 
 BUG REPORTS:
-        https://github.com/bus1/boot-efi/issues
+        https://github.com/org.bus1/boot-efi/issues
 
 GIT:
         git@github.com:bus1/boot-efi.git
-        https://github.com/bus1/boot-efi.git
+        https://github.com/org.bus1/boot-efi.git
 
 GITWEB:
-        https://github.com/bus1/boot-efi
+        https://github.com/org.bus1/boot-efi
 
 LICENSE:
         LGPLv2.1+ (LICENSE.LGPL2.1)

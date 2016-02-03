@@ -909,7 +909,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
         EFI_FILE_HANDLE f;
         EFI_STATUS r;
 
-        r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\bus1", EFI_FILE_MODE_READ, 0ULL);
+        r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\org.bus1", EFI_FILE_MODE_READ, 0ULL);
         if (EFI_ERROR(r))
                 return r;
 
@@ -978,7 +978,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 if (szs[SECTION_OPTIONS] > 0)
                         file_read_str(bus1_dir, file_info.info.FileName, offs[SECTION_OPTIONS], szs[SECTION_OPTIONS], &options);
 
-                file = PoolPrint(L"\\EFI\\bus1\\%s", file_info.info.FileName);
+                file = PoolPrint(L"\\EFI\\org.bus1\\%s", file_info.info.FileName);
                 config_entry_add_file(config, config->loaded_image->DeviceHandle, root_dir,
                                       release, 'l', file, options,
                                       boot_count, ENTRY_EDITOR|ENTRY_AUTOSELECT);
@@ -1015,7 +1015,7 @@ static EFI_STATUS image_set_boot_count(EFI_FILE *root_dir, ConfigEntry *entry, U
                 goto finish;
 
         /* Update the stored loader path in the entry. */
-        file_path = PoolPrint(L"\\EFI\\bus1\\%s-boot%d.efi", entry->release, count);
+        file_path = PoolPrint(L"\\EFI\\org.bus1\\%s-boot%d.efi", entry->release, count);
         if (!file_path) {
                 r = EFI_OUT_OF_RESOURCES;
                 goto finish;
@@ -1140,7 +1140,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return EFI_LOAD_ERROR;
         }
 
-        /* scan /EFI/bus1/ directory */
+        /* scan /EFI/org.bus1/ directory */
         config_entry_add_linux(&config, root_dir);
 
         /* sort entries by release string */
