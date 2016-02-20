@@ -18,7 +18,7 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
+#include "shared/util.h"
 
 static const EFI_GUID EfiGlobalVariableGuid = EFI_GLOBAL_VARIABLE;
 

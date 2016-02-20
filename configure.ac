@@ -5,9 +5,9 @@ AC_INIT([boot-efi],
         [http://www.github.com/bus1/boot-efi])
 
 AC_CONFIG_SRCDIR([src/shared/util.h])
-AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIR([build/m4])
+AC_CONFIG_HEADERS([build/config.h])
+AC_CONFIG_AUX_DIR([build/build-aux])
 
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects])
 AM_SILENT_RULES([yes])
@@ -26,6 +26,14 @@ EFI_CC=$CC
 AC_SUBST([EFI_CC])
 
 # ------------------------------------------------------------------------------
+AC_DEFUN([SET_ARCH], [
+        cpu_$1=false
+        case "$host" in
+                $2) cpu_$1=true ;;
+        esac
+        AM_CONDITIONAL(AS_TR_CPP(ARCH_$1), [test "x$cpu_$1" = xtrue])
+])
+
 SET_ARCH(X86_64, x86_64*)
 SET_ARCH(IA32, i*86*)
 SET_ARCH(MIPS, mips*)

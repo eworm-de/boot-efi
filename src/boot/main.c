@@ -18,11 +18,11 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
+#include "shared/util.h"
+#include "shared/graphics.h"
+#include "shared/disk.h"
+#include "shared/pefile.h"
 #include "console.h"
-#include "graphics.h"
-#include "disk.h"
-#include "pefile.h"
 
 enum {
         ENTRY_EDITOR            = 1ULL <<  0,

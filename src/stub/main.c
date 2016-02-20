@@ -18,10 +18,10 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
-#include "disk.h"
-#include "pefile.h"
-#include "graphics.h"
+#include "shared/util.h"
+#include "shared/disk.h"
+#include "shared/pefile.h"
+#include "shared/graphics.h"
 #include "splash.h"
 #include "linux.h"
 

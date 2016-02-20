@@ -18,8 +18,8 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
-#include "graphics.h"
+#include "shared/util.h"
+#include "shared/graphics.h"
 #include "splash.h"
 
 struct bmp_file {

@@ -18,7 +18,7 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
+#include "shared/util.h"
 
 typedef struct {
         UINT8   signature[8];

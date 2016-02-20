@@ -18,7 +18,7 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
+#include "shared/util.h"
 #include "linux.h"
 
 #define SETUP_MAGIC             0x53726448      /* "HdrS" */

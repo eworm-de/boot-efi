@@ -18,7 +18,7 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
+#include "shared/util.h"
 #include "console.h"
 
 #define EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL_GUID \

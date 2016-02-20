@@ -1,4 +1,8 @@
-ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
+# ------------------------------------------------------------------------------
+# autotools
+
+SHELL = bash
+ACLOCAL_AMFLAGS = -I build/m4 ${ACLOCAL_FLAGS}
 AM_MAKEFLAGS = --no-print-directory
 AUTOMAKE_OPTIONS = color-tests parallel-tests
 
@@ -19,8 +23,8 @@ bootlibdir = $(prefix)/lib/bus1/boot-efi
 # ------------------------------------------------------------------------------
 efi_cppflags = \
 	$(EFI_CPPFLAGS) \
-	-I$(top_builddir) -include config.h \
-	-I$(top_srcdir)/src/shared \
+	-I$(top_builddir) -include build/config.h \
+	-I$(top_srcdir)/src \
 	-I$(EFI_INC_DIR)/efi \
 	-I$(EFI_INC_DIR)/efi/$(EFI_ARCH) \
 	-DEFI_MACHINE_TYPE_NAME=\"$(EFI_MACHINE_TYPE_NAME)\"

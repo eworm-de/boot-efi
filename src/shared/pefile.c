@@ -18,8 +18,8 @@
 #include <efi.h>
 #include <efilib.h>
 
-#include "util.h"
-#include "pefile.h"
+#include "shared/util.h"
+#include "shared/pefile.h"
 
 struct DosFileHeader {
         UINT8   Magic[2];
