@@ -40,10 +40,10 @@ test -e "$initrd" || exit 1
 objcopy \
   --add-section .release=$ROOT/release.txt --change-section-vma .release=0x20000 \
   --add-section .options=$ROOT/options.txt --change-section-vma .options=0x30000 \
-  --add-section .splash=test/org.bus1.bmp --change-section-vma .splash=0x40000 \
+  --add-section .splash=test/bus1.bmp --change-section-vma .splash=0x40000 \
   --add-section .linux=$linux --change-section-vma .linux=0x2000000 \
   --add-section .initrd=$initrd --change-section-vma .initrd=0x3000000 \
-  stubx64.efi $ROOT/EFI/org.bus1/bus1.efi
+  stubx64.efi $ROOT/EFI/org.bus1/bus1-0815.efi
 
 sync
 umount $ROOT
