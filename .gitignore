@@ -17,6 +17,7 @@
 /configure
 .deps/
 .dirstamp
+/install-tree
 /Makefile
 /Makefile.in
 

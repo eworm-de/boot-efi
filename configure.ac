@@ -12,8 +12,9 @@ AC_CONFIG_AUX_DIR([build/build-aux])
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects])
 AM_SILENT_RULES([yes])
 
-# AC_PROG_CC sets default CFLAGS which conflict with our own configuration
-CFLAGS_SAVE=$CFLAGS
+# suppress conflicting defaults
+CFLAGS=${CFLAGS:-""}
+CXXFLAGS=${CXXFLAGS:-""}
 
 AC_CANONICAL_HOST
 AC_SYS_LARGEFILE
@@ -21,8 +22,6 @@ AC_PROG_CC_C99
 AC_PROG_MKDIR_P
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(NM, nm)
-
-CFLAGS=$CFLAGS_SAVE
 
 # do not try to use things like -std=c99 for efi compilation
 EFI_CC=$CC

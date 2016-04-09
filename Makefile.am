@@ -18,7 +18,7 @@ efi__v_CCLD_ = $(efi__v_CCLD_$(AM_DEFAULT_VERBOSITY))
 efi__v_CCLD_0 = @echo "  EFICCLD " $@;
 efi__v_CCLD_1 = 
 
-bootlibdir = $(prefix)/lib/bus1/boot-efi
+bootefidir = $(prefix)/share/org.bus1.boot-efi
 
 # ------------------------------------------------------------------------------
 efi_cppflags = \
@@ -101,7 +101,7 @@ boot_objects = $(addprefix $(top_builddir)/,$(boot_sources:.c=.o))
 boot_solib = $(top_builddir)/boot.so
 boot = boot$(EFI_MACHINE_TYPE_NAME).efi
 
-bootlib_DATA = $(boot)
+bootefi_DATA = $(boot)
 CLEANFILES = $(boot_objects) $(boot_solib) $(boot)
 
 $(top_builddir)/src/%.o: $(top_srcdir)/src/%.c $(addprefix $(top_srcdir)/,$(boot_headers))
@@ -144,7 +144,7 @@ stub_objects = $(addprefix $(top_builddir)/,$(stub_sources:.c=.o))
 stub_solib = $(top_builddir)/stub.so
 stub = stub$(EFI_MACHINE_TYPE_NAME).efi
 
-bootlib_DATA += $(stub)
+bootefi_DATA += $(stub)
 CLEANFILES += $(stub_objects) $(stub_solib) $(stub)
 
 $(top_builddir)/src/%.o: $(top_srcdir)/src/%.c $(addprefix $(top_srcdir)/,$(stub_headers))
@@ -159,6 +159,15 @@ $(stub_solib): $(stub_objects)
 $(stub): $(stub_solib)
 	$(AM_V_GEN)$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic \
 		-j .dynsym -j .rel -j .rela -j .reloc $(EFI_FORMAT) $< $@
+
+# ------------------------------------------------------------------------------¶
+# check "make install" directory tree
+
+install-tree: all
+	rm -rf $(abs_builddir)/install-tree
+	$(MAKE) install DESTDIR=$(abs_builddir)/install-tree
+	tree $(abs_builddir)/install-tree
+.PHONY: install-tree
 
 # ------------------------------------------------------------------------------
 CLEANFILES += efi-disk.img
