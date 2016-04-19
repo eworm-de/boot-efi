@@ -16,4 +16,4 @@
   along with bus1; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background);
+EFI_STATUS graphics_splash(UINT8 *content, UINTN len);

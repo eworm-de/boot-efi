@@ -167,7 +167,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         if (szs[SECTION_SPLASH] > 0)
-                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH], NULL);
+                graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[SECTION_SPLASH]), szs[SECTION_SPLASH]);
 
         r = linux_exec(image, cmdline, cmdline_len,
                        (UINTN)loaded_image->ImageBase + addrs[SECTION_LINUX],

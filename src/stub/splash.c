@@ -253,7 +253,7 @@ EFI_STATUS bmp_to_blt(EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buf,
         return EFI_SUCCESS;
 }
 
-EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_BLT_PIXEL *background) {
+EFI_STATUS graphics_splash(UINT8 *content, UINTN len) {
         EFI_GRAPHICS_OUTPUT_BLT_PIXEL pixel = {};
         EFI_GUID GraphicsOutputProtocolGuid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphicsOutput = NULL;
@@ -265,15 +265,6 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
         UINTN x_pos = 0;
         UINTN y_pos = 0;
         EFI_STATUS r;
-
-        if (!background) {
-                if (StriCmp(L"Apple", ST->FirmwareVendor) == 0) {
-                        pixel.Red = 0xc0;
-                        pixel.Green = 0xc0;
-                        pixel.Blue = 0xc0;
-                }
-                background = &pixel;
-        }
 
         r = LibLocateProtocol(&GraphicsOutputProtocolGuid, (VOID **)&GraphicsOutput);
         if (EFI_ERROR(r))
@@ -289,7 +280,7 @@ EFI_STATUS graphics_splash(UINT8 *content, UINTN len, const EFI_GRAPHICS_OUTPUT_
                 y_pos = (GraphicsOutput->Mode->Info->VerticalResolution - dib->y) / 2;
 
         uefi_call_wrapper(GraphicsOutput->Blt, 10, GraphicsOutput,
-                          (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)background,
+                          &pixel,
                           EfiBltVideoFill, 0, 0, 0, 0,
                           GraphicsOutput->Mode->Info->HorizontalResolution,
                           GraphicsOutput->Mode->Info->VerticalResolution, 0);
