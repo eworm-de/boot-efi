@@ -75,7 +75,6 @@ EFI_STATUS pefile_locate_sections(EFI_FILE_HANDLE handle,
         uint8_t magic[4];
         struct PeFileHeader pe;
         UINTN len;
-        UINTN i;
         EFI_STATUS r;
 
         /* MS-DOS stub */
@@ -127,9 +126,8 @@ EFI_STATUS pefile_locate_sections(EFI_FILE_HANDLE handle,
         if (EFI_ERROR(r))
                 return r;
 
-        for (i = 0; i < pe.NumberOfSections; i++) {
+        for (UINTN i = 0; i < pe.NumberOfSections; i++) {
                 struct PeSectionHeader sect;
-                UINTN n;
 
                 len = sizeof(sect);
                 r = uefi_call_wrapper(handle->Read, 3, handle, &len, &sect);
@@ -139,7 +137,7 @@ EFI_STATUS pefile_locate_sections(EFI_FILE_HANDLE handle,
                 if (len != sizeof(sect))
                         return EFI_INVALID_PARAMETER;
 
-                for (n = 0; n < n_sections; n++) {
+                for (UINTN n = 0; n < n_sections; n++) {
                         if (CompareMem(sect.Name, sections[n], strlena(sections[n])) != 0)
                                 continue;
 

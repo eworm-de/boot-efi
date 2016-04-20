@@ -96,7 +96,9 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
                 i = len - first;
                 if (i >= x_max-1)
                         i = x_max-1;
+
                 CopyMem(print, line + first, i * sizeof(CHAR16));
+
                 while (clear > 0 && i < x_max-1) {
                         clear--;
                         print[i++] = ' ';
@@ -187,6 +189,7 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
                         clear = 0;
                         for (i = first + cursor; i < len && line[i] == ' '; i++)
                                 clear++;
+
                         for (; i < len && line[i] != ' '; i++)
                                 clear++;
 
@@ -303,25 +306,26 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
 }
 
 static UINTN entry_lookup_key(Config *config, UINTN start, CHAR16 key) {
-        UINTN i;
-
         if (key == 0)
                 return -1;
 
         /* select entry by number key */
         if (key >= '1' && key <= '9') {
+                UINTN i;
+
                 i = key - '0';
                 if (i > config->n_entries)
                         i = config->n_entries;
-                return i-1;
+
+                return i - 1;
         }
 
         /* find matching key in config entries */
-        for (i = start; i < config->n_entries; i++)
+        for (UINTN i = start; i < config->n_entries; i++)
                 if (config->entries[i]->key == key)
                         return i;
 
-        for (i = 0; i < start; i++)
+        for (UINTN i = 0; i < start; i++)
                 if (config->entries[i]->key == key)
                         return i;
 
@@ -332,7 +336,6 @@ static VOID print_status(Config *config) {
         CHAR16 *s;
         CHAR16 uuid[37];
         UINT64 key;
-        UINTN i;
         CHAR8 *b;
         UINTN x;
         UINTN y;
@@ -382,7 +385,7 @@ static VOID print_status(Config *config) {
         Print(L"\n--- press key ---\n\n");
         console_key_read(&key, TRUE);
 
-        for (i = 0; i < config->n_entries; i++) {
+        for (UINTN i = 0; i < config->n_entries; i++) {
                 ConfigEntry *entry;
 
                 if (key == KEYPRESS(0, SCAN_ESC, 0) || key == KEYPRESS(0, 0, 'q'))
@@ -425,7 +428,6 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
         UINTN idx_last;
         BOOLEAN refresh;
         BOOLEAN highlight;
-        UINTN i;
         UINTN line_width;
         CHAR16 **lines;
         UINTN x_start;
@@ -472,7 +474,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
 
         /* length of the longest entry */
         line_width = 5;
-        for (i = 0; i < config->n_entries; i++) {
+        for (UINTN i = 0; i < config->n_entries; i++) {
                 UINTN entry_len;
 
                 entry_len = StrLen(config->entries[i]->release);
@@ -491,10 +493,11 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
 
         /* menu entries title lines */
         lines = AllocatePool(sizeof(CHAR16 *) * config->n_entries);
-        for (i = 0; i < config->n_entries; i++) {
+        for (UINTN i = 0; i < config->n_entries; i++) {
                 UINTN j, k;
 
                 lines[i] = AllocatePool(((x_max+1) * sizeof(CHAR16)));
+
                 for (j = 0; j < x_start; j++)
                         lines[i][j] = ' ';
 
@@ -503,20 +506,22 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
 
                 for (; j < x_max; j++)
                         lines[i][j] = ' ';
+
                 lines[i][x_max] = '\0';
         }
 
         status = NULL;
-        clearline = AllocatePool((x_max+1) * sizeof(CHAR16));
-        for (i = 0; i < x_max; i++)
+
+        clearline = AllocatePool((x_max + 1) * sizeof(CHAR16));
+        for (UINTN i = 0; i < x_max; i++)
                 clearline[i] = ' ';
-        clearline[i] = 0;
+        clearline[x_max] = 0;
 
         while (!exit) {
                 UINT64 key;
 
                 if (refresh) {
-                        for (i = 0; i < config->n_entries; i++) {
+                        for (UINTN i = 0; i < config->n_entries; i++) {
                                 if (i < idx_first || i > idx_last)
                                         continue;
                                 uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_start + i - idx_first);
@@ -688,7 +693,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry) {
 
         *chosen_entry = config->entries[idx_highlight];
 
-        for (i = 0; i < config->n_entries; i++)
+        for (UINTN i = 0; i < config->n_entries; i++)
                 FreePool(lines[i]);
         FreePool(lines);
         FreePool(clearline);
@@ -775,14 +780,11 @@ static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2) {
 }
 
 static VOID config_sort_entries(Config *config) {
-        UINTN i;
-
-        for (i = 1; i < config->n_entries; i++) {
+        for (UINTN i = 1; i < config->n_entries; i++) {
                 BOOLEAN more;
-                UINTN k;
 
                 more = FALSE;
-                for (k = 0; k < config->n_entries - i; k++) {
+                for (UINTN k = 0; k < config->n_entries - i; k++) {
                         ConfigEntry *entry;
 
                         if (str_verscmp(config->entries[k]->file_path, config->entries[k+1]->file_path) <= 0)
@@ -880,9 +882,7 @@ static VOID config_entry_add_osx(Config *config) {
 
         r = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
         if (!EFI_ERROR(r)) {
-                UINTN i;
-
-                for (i = 0; i < handle_count; i++) {
+                for (UINTN i = 0; i < handle_count; i++) {
                         _c_cleanup_(CCloseP) EFI_FILE_HANDLE root = NULL;
 
                         root = LibOpenRoot(handles[i]);
@@ -1084,9 +1084,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
 }
 
 static VOID config_free(Config *config) {
-        UINTN i;
-
-        for (i = 0; i < config->n_entries; i++)
+        for (UINTN i = 0; i < config->n_entries; i++)
                 config_entry_free(config->entries[i]);
         FreePool(config->entries);
 }

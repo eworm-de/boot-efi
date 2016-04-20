@@ -55,7 +55,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN szs[C_ARRAY_SIZE(sections)] = {};
         CHAR16 *options = NULL;
         UINTN options_len = 0;
-        UINTN i;
         CHAR8 *cmdline;
         UINTN cmdline_len;
         CHAR8 *s;
@@ -127,7 +126,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         s = cmdline;
         CopyMem(s, "disk=", 5);
         s += 5;
-        for (i = 0; i < 36 ; i++) {
+        for (UINTN i = 0; i < 36 ; i++) {
                 *s = uuid[i];
 
                 /* We expect the UUID to be lowercase. */
@@ -141,7 +140,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         s++;
         CopyMem(s, "loader=", 7);
         s += 7;
-        for (i = 0; i < StrLen(loaded_image_path) ; i++) {
+        for (UINTN i = 0; i < StrLen(loaded_image_path) ; i++) {
                 *s = loaded_image_path[i];
 
                 /* We expect slashes. */
@@ -154,7 +153,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (options_len) {
                 *s = ' ';
                 s++;
-                for (i = 0; i < options_len; i++) {
+                for (UINTN i = 0; i < options_len; i++) {
                         *s = options[i];
 
                         s++;

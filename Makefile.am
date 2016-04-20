@@ -33,12 +33,10 @@ efi_cflags = \
 	$(EFI_CFLAGS) \
 	-Wall \
 	-Wextra \
-	-std=gnu90 \
-	-nostdinc \
+	-std=gnu99 \
 	-ggdb -O0 \
 	-fpic \
 	-fshort-wchar \
-	-nostdinc \
 	-ffreestanding \
 	-fno-strict-aliasing \
 	-fno-stack-protector \
