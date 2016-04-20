@@ -20,11 +20,21 @@
 #include <efilib.h>
 
 #define C_ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
-
 #define _c_cleanup_(_x) __attribute__((__cleanup__(_x)))
+
+#define C_DEFINE_CLEANUP(_type, _func)                  \
+        static inline void _func ## p(_type *p) {       \
+                if (*p)                                 \
+                        _func(*p);                      \
+} struct c_internal_trailing_semicolon
 
 static inline VOID CFreePoolP(VOID *p) {
         FreePool(*(VOID **)p);
+}
+
+static inline VOID CCloseP(EFI_FILE_HANDLE *handle) {
+        if (*handle)
+                uefi_call_wrapper((*handle)->Close, 1, *handle);
 }
 
 static inline const CHAR16 *yes_no(BOOLEAN b) {

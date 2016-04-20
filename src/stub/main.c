@@ -29,9 +29,9 @@ static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
-        EFI_FILE *root_dir;
-        _c_cleanup_(CFreePoolP) CHAR16 *loaded_image_path;
-        EFI_FILE_HANDLE f;
+        EFI_FILE_HANDLE root_dir;
+        _c_cleanup_(CFreePoolP) CHAR16 *loaded_image_path = NULL;
+        _c_cleanup_(CCloseP) EFI_FILE_HANDLE f = NULL;
         CHAR16 uuid[37] = {};
         CHAR8 *b;
         UINTN size;
@@ -88,7 +88,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         r = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
         if (EFI_ERROR(r)) {
-                uefi_call_wrapper(f->Close, 1, f);
                 Print(L"Unable to locate embedded PE/COFF sections: %r\n", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return r;
@@ -96,14 +95,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         r = loader_filename_parse(f, loaded_image->ImageBase + addrs[SECTION_RELEASE], szs[SECTION_RELEASE] / sizeof(CHAR16), NULL);
         if (EFI_ERROR(r)) {
-                uefi_call_wrapper(f->Close, 1, f);
                 Print(L"Filename and release do not match: %r.\n", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 return r;
         }
-
-        uefi_call_wrapper(f->Close, 1, f);
-
 
         if (secure && loaded_image->LoadOptionsSize > 0) {
                 Print(L"Secure Boot active, ignoring custom kernel command line.\n");

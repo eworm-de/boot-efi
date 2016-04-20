@@ -839,11 +839,11 @@ static BOOLEAN config_entry_add_call(Config *config, CHAR16 *release, EFI_STATUS
         return TRUE;
 }
 
-static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir,
+static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_FILE_HANDLE root_dir,
                                         CHAR16 *release, CHAR16 key, CHAR16 *file_path, CHAR16 *options,
                                         INTN boot_count, UINT64 flags) {
         ConfigEntry *entry;
-        EFI_FILE_HANDLE handle;
+        _c_cleanup_(CCloseP) EFI_FILE_HANDLE handle = NULL;
         EFI_FILE_INFO *info;
         UINTN size = 0;
         EFI_STATUS r;
@@ -856,9 +856,6 @@ static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_
         info = LibFileInfo(handle);
         size = info->FileSize;
         FreePool(info);
-        r = uefi_call_wrapper(handle->Close, 1, handle);
-        if (EFI_ERROR(r))
-                return r;
 
         if (size == 0)
                 return EFI_LOAD_ERROR;
@@ -886,7 +883,7 @@ static VOID config_entry_add_osx(Config *config) {
                 UINTN i;
 
                 for (i = 0; i < handle_count; i++) {
-                        EFI_FILE *root;
+                        _c_cleanup_(CCloseP) EFI_FILE_HANDLE root = NULL;
 
                         root = LibOpenRoot(handles[i]);
                         if (!root)
@@ -894,8 +891,6 @@ static VOID config_entry_add_osx(Config *config) {
 
                         r = config_entry_add_file(config, handles[i], root, L"osx", 'a',
                                                   L"\\System\\Library\\CoreServices\\boot.efi", NULL, -1, 0);
-                        uefi_call_wrapper(root->Close, 1, root);
-
                         if (!EFI_ERROR(r))
                                 break;
                 }
@@ -904,9 +899,8 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
-static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
-        EFI_FILE_HANDLE bus1_dir;
-        EFI_FILE_HANDLE f;
+static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE_HANDLE root_dir) {
+        _c_cleanup_(CCloseP) EFI_FILE_HANDLE bus1_dir = NULL;
         EFI_STATUS r;
 
         r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &bus1_dir, L"\\EFI\\org.bus1", EFI_FILE_MODE_READ, 0ULL);
@@ -914,6 +908,7 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                 return r;
 
         for (;;) {
+                _c_cleanup_(CCloseP) EFI_FILE_HANDLE f = NULL;
                 struct {
                         EFI_FILE_INFO info;
                         CHAR16 buf[256];
@@ -952,28 +947,18 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                         continue;
 
                 r = pefile_locate_sections(f, sections, C_ARRAY_SIZE(sections), addrs, offs, szs);
-                if (EFI_ERROR(r)) {
-                        uefi_call_wrapper(f->Close, 1, f);
+                if (EFI_ERROR(r))
                         continue;
-                }
 
-                if (szs[SECTION_RELEASE] == 0) {
-                        uefi_call_wrapper(f->Close, 1, f);
+                if (szs[SECTION_RELEASE] == 0)
                         continue;
-                }
 
                 n = file_read_str(bus1_dir, file_info.info.FileName, offs[SECTION_RELEASE], szs[SECTION_RELEASE], &release);
-                if (n <= 0) {
-                        uefi_call_wrapper(f->Close, 1, f);
+                if (n <= 0)
                         continue;
-                }
 
-                if (loader_filename_parse(f, release, n, &boot_count) != EFI_SUCCESS) {
-                        uefi_call_wrapper(f->Close, 1, f);
+                if (loader_filename_parse(f, release, n, &boot_count) != EFI_SUCCESS)
                         continue;
-                }
-
-                uefi_call_wrapper(f->Close, 1, f);
 
                 if (szs[SECTION_OPTIONS] > 0)
                         file_read_str(bus1_dir, file_info.info.FileName, offs[SECTION_OPTIONS], szs[SECTION_OPTIONS], &options);
@@ -984,21 +969,19 @@ static EFI_STATUS config_entry_add_linux( Config *config, EFI_FILE *root_dir) {
                                       boot_count, ENTRY_EDITOR|ENTRY_AUTOSELECT);
         }
 
-        uefi_call_wrapper(bus1_dir->Close, 1, bus1_dir);
-
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS image_set_boot_count(EFI_FILE *root_dir, ConfigEntry *entry, UINTN count) {
+static EFI_STATUS image_set_boot_count(EFI_FILE_HANDLE root_dir, ConfigEntry *entry, UINTN count) {
         static EFI_GUID EfiFileInfoGuid = EFI_FILE_INFO_ID;
         struct {
                 EFI_FILE_INFO info;
                 CHAR16 buf[256];
         } file_info;
         UINTN file_info_size = sizeof(file_info);
-        EFI_FILE *file;
+        _c_cleanup_(CCloseP) EFI_FILE_HANDLE file = NULL;
         CHAR16 *file_path;
-        EFI_STATUS r = EFI_SUCCESS;
+        EFI_STATUS r;
 
         r = uefi_call_wrapper(root_dir->Open, 5, root_dir, &file, entry->file_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (EFI_ERROR(r))
@@ -1006,31 +989,26 @@ static EFI_STATUS image_set_boot_count(EFI_FILE *root_dir, ConfigEntry *entry, U
 
         r = uefi_call_wrapper(file->GetInfo, 4, file, &EfiFileInfoGuid, &file_info_size, &file_info);
         if (EFI_ERROR(r))
-                goto finish;
+                return r;
 
         /* Rename the loader file to reflect the new boot count. */
         SPrint(file_info.info.FileName, sizeof(file_info.buf), L"%s-boot%d.efi", entry->release, count);
         r = uefi_call_wrapper(file->SetInfo, 4, file, &EfiFileInfoGuid, file_info_size, &file_info);
         if (EFI_ERROR(r))
-                goto finish;
+                return r;
 
         /* Update the stored loader path in the entry. */
         file_path = PoolPrint(L"\\EFI\\org.bus1\\%s-boot%d.efi", entry->release, count);
-        if (!file_path) {
-                r = EFI_OUT_OF_RESOURCES;
-                goto finish;
-        }
+        if (!file_path)
+                return EFI_OUT_OF_RESOURCES;
 
         FreePool(entry->file_path);
         entry->file_path = file_path;
 
-finish:
-        uefi_call_wrapper(file->Close, 1, file);
-
-        return r;
+        return 0;
 }
 
-static EFI_STATUS image_start(EFI_FILE *root_dir, EFI_HANDLE parent_image, ConfigEntry *entry) {
+static EFI_STATUS image_start(EFI_FILE_HANDLE root_dir, EFI_HANDLE parent_image, ConfigEntry *entry) {
         _c_cleanup_(CFreePoolP) EFI_DEVICE_PATH *path = NULL;
         EFI_HANDLE image;
         EFI_STATUS r;
@@ -1116,7 +1094,7 @@ static VOID config_free(Config *config) {
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         CHAR8 *b;
         UINTN size;
-        EFI_FILE *root_dir;
+        _c_cleanup_(CCloseP) EFI_FILE_HANDLE root_dir = NULL;
         Config config = {
                 .idx_default = -1,
         };
@@ -1126,7 +1104,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         InitializeLib(image, sys_table);
         r = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID **)&config.loaded_image,
-                                image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+                              image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
         if (EFI_ERROR(r)) {
                 Print(L"Error getting a LoadedImageProtocol handle: %r ", r);
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
@@ -1214,10 +1192,12 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
                 menu = TRUE;
         }
+
         r = EFI_SUCCESS;
+
 finish:
-        config_free(&config);
-        uefi_call_wrapper(root_dir->Close, 1, root_dir);
         uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
+        config_free(&config);
+
         return r;
 }
