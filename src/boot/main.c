@@ -863,10 +863,12 @@ static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_
                 return EFI_LOAD_ERROR;
 
         entry = AllocateZeroPool(sizeof(ConfigEntry));
-        entry->release = StrDuplicate(release);
+        if (release)
+                entry->release = StrDuplicate(release);
         entry->key = key;
         entry->file_path = StrDuplicate(file_path);
-        entry->options = StrDuplicate(options);
+        if (options)
+                entry->options = StrDuplicate(options);
         entry->boot_count = boot_count;
         entry->flags = flags;
         entry->device = device;
