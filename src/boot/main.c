@@ -861,7 +861,7 @@ static EFI_STATUS config_entry_add_file(Config *config, EFI_HANDLE *device, EFI_
                 return r;
 
         if (size == 0)
-                return FALSE;
+                return EFI_LOAD_ERROR;
 
         entry = AllocateZeroPool(sizeof(ConfigEntry));
         entry->release = StrDuplicate(release);
@@ -887,16 +887,16 @@ static VOID config_entry_add_osx(Config *config) {
 
                 for (i = 0; i < handle_count; i++) {
                         EFI_FILE *root;
-                        BOOLEAN found;
 
                         root = LibOpenRoot(handles[i]);
                         if (!root)
                                 continue;
-                        found = config_entry_add_file(config, handles[i], root, L"osx", 'a',
-                                                      L"\\System\\Library\\CoreServices\\boot.efi", NULL,
-                                                      -1, 0);
+
+                        r = config_entry_add_file(config, handles[i], root, L"osx", 'a',
+                                                  L"\\System\\Library\\CoreServices\\boot.efi", NULL, -1, 0);
                         uefi_call_wrapper(root->Close, 1, root);
-                        if (found)
+
+                        if (!EFI_ERROR(r))
                                 break;
                 }
 
