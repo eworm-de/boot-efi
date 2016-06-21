@@ -1,17 +1,17 @@
-bus1 - UEFI Boot Manager
+UEFI Boot Manager
 
 DETAILS:
-        https://github.com/bus1/boot-efi
+        https://github.com/cherry-pick/boot-efi
 
 BUG REPORTS:
-        https://github.com/bus1/boot-efi/issues
+        https://github.com/cherry-pick/boot-efi/issues
 
 GIT:
-        git@github.com:bus1/boot-efi.git
-        https://github.com/bus1/boot-efi.git
+        git@github.com:cherry-pick/boot-efi.git
+        https://github.com/cherry-pick/boot-efi.git
 
 GITWEB:
-        https://github.com/bus1/boot-efi
+        https://github.com/cherry-pick/boot-efi
 
 LICENSE:
         LGPLv2.1+ (LICENSE.LGPL2.1)
